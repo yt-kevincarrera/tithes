@@ -21,9 +21,25 @@ publicar una versión es todo el proceso de despliegue que hay.
    git commit -am "v1.1.0" && git tag v1.1.0 && git push origin main --tags
    ```
 
-El workflow de `.github/workflows/release.yml` corre los tests, compila el APK
-firmado, crea la release y le adjunta `diezmo-1.1.0.apk`. La próxima vez que
-abras la app, el aviso aparece solo.
+El workflow de `.github/workflows/release.yml` corre los tests, compila los APK
+firmados, crea la release y le adjunta uno por arquitectura:
+
+```
+diezmo-1.1.0-arm64-v8a.apk
+diezmo-1.1.0-armeabi-v7a.apk
+diezmo-1.1.0-x86_64.apk
+```
+
+Un APK universal lleva las tres dentro y pesa el triple; la app elige el suyo
+por el nombre del asset, así que **los nombres importan**: si se cambia el
+formato hay que cambiar también `UpdateService.pickApk`.
+
+Al partir por arquitectura, Flutter multiplica el `versionCode` (arm64 pasa a
+`2000 + n`). Eso significa que **no se puede volver a un APK universal** sin
+subir mucho el número de `pubspec.yaml`: Android rechaza instalar un
+`versionCode` menor que el ya instalado.
+
+La próxima vez que abras la app, el aviso aparece solo.
 
 La etiqueta tiene que coincidir con la versión de `pubspec.yaml`: el
 actualizador compara `tag_name` contra la versión instalada.

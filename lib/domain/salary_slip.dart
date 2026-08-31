@@ -46,10 +46,20 @@ String _iso(DateTime? date) => date == null
 
 /// Lee los slips de nómina que llegan por Telegram.
 ///
-/// Solo interesan dos líneas de todo el mensaje: **Final Pay (CUP)**, que es lo
-/// que de verdad se cobra en CUP, y **Salario Tropipay USD**. El resto son
-/// desgloses y deducciones que ya están descontados en el Final Pay, así que
-/// sumarlos contaría el mismo dinero dos veces.
+/// De todo el mensaje solo son dinero cobrado tres líneas: **Final Pay (CUP)**,
+/// **Salario Tropipay USD** y **Bono**, cuando aparece.
+///
+/// El resto —`Salario Quincenal CUP`, `Base Impositiva`, las deducciones— son
+/// el desglose del que sale el Final Pay, y sumarlos contaría el mismo dinero
+/// dos veces. La aritmética de los slips reales lo confirma:
+///
+/// ```
+/// 33.250,00 − 4.693,50 − 2.950,00 = 25.606,50 = Final Pay
+/// 33.750,00 − 4.793,50 − 3.000,00 = 25.956,50 = Final Pay
+/// ```
+///
+/// Y confirma también lo contrario: el Final Pay **no** incluye ni los USD de
+/// Tropipay ni el Bono, así que esos sí hay que sumarlos aparte.
 abstract final class SalarySlipParser {
   /// Etiquetas que sí son dinero cobrado, con su moneda.
   ///
@@ -57,6 +67,9 @@ abstract final class SalarySlipParser {
   static const _fields = <(String, Currency)>[
     ('Final Pay (CUP)', Currency.cup),
     ('Salario Tropipay USD', Currency.usd),
+    // El slip no dice la moneda del bono, a diferencia de los campos en CUP,
+    // que la llevan en la etiqueta. Confirmado con el usuario: es USD.
+    ('Bono', Currency.usd),
   ];
 
   /// True si el texto parece un slip. Sirve para no intentar parsear cualquier

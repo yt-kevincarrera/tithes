@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../data/update_service.dart';
 import '../domain/app_version.dart';
@@ -102,12 +101,10 @@ class UpdateController extends Notifier<UpdateState> {
     );
 
     try {
-      final directory = await getTemporaryDirectory();
       final file = await ref
           .read(updateServiceProvider)
           .download(
             update,
-            directory: directory,
             onProgress: (progress) =>
                 state = state.copyWith(progress: progress),
           );

@@ -26,18 +26,32 @@ ese día quedan congeladas dentro del pago y el historial ya no se mueve.
 
 ## Importar el slip de nómina
 
-Comparte el slip desde Telegram con la app —o cópialo y usa *Pegar slip*— y el
-formulario llega relleno: `Final Pay (CUP)` y `Salario Tropipay USD` como un
-solo ingreso de dos monedas.
+Copia el slip en Telegram y toca **Pegar slip** en la pantalla de inicio. El
+formulario llega relleno con `Final Pay (CUP)`, `Salario Tropipay USD` y `Bono`
+si lo hay, como un solo ingreso de varias monedas.
 
-Del slip se toman **solo esas dos líneas**. Los desgloses (`Salario Quincenal
-CUP`, `Salario Banco CUP`) y las deducciones ya están dentro del Final Pay, así
-que sumarlos contaría el mismo dinero dos veces.
+Es copiar y pegar, no compartir, porque Telegram no ofrece "compartir" para los
+mensajes de un canal: da *Reenviar*, que es interno suyo, y *Copiar*. La app
+acepta igualmente texto compartido desde cualquier otra app, por si el slip
+llega por otra vía.
 
-Se eligió compartir en vez de leer las notificaciones de Telegram por dos
-razones: un slip es un mensaje largo y Android puede truncarlo justo antes de la
-línea que importa, y leer notificaciones exige permiso sobre **todas** las del
-teléfono. Compartir cuesta un toque y entrega el texto entero, siempre.
+Tampoco se leen las notificaciones de Telegram: un slip es un mensaje largo que
+Android puede truncar justo antes de la línea que importa, y esa lectura exige
+permiso sobre **todas** las notificaciones del teléfono.
+
+### Qué se toma y qué no
+
+Solo esas tres líneas son dinero cobrado. Los desgloses (`Salario Quincenal
+CUP`, `Base Impositiva`) y las deducciones son de dónde sale el Final Pay:
+
+```
+33.250,00 − 4.693,50 − 2.950,00 = 25.606,50  = Final Pay
+33.750,00 − 4.793,50 − 3.000,00 = 25.956,50  = Final Pay
+```
+
+Sumarlos contaría el mismo dinero dos veces. Y esa misma cuenta muestra que el
+Final Pay **no** incluye ni los USD de Tropipay ni el Bono, así que esos dos sí
+se suman aparte.
 
 **La fecha del ingreso es el día en que llega el slip**, no el cierre de la
 quincena. Los slips llegan con días de retraso —el de la primera quincena sobre
@@ -87,6 +101,11 @@ flutter build apk --release --dart-define=RATES_ENDPOINT=https://tu-proxy.vercel
 La app no está en Play Store: se actualiza sola desde las releases de este
 repositorio. Al abrirla comprueba si hay una versión nueva y, si la hay, enseña
 una barra con un botón que descarga el APK y lanza el instalador de Android.
+También hay un botón manual en Ajustes y en el menú de la pantalla principal.
+
+La descarga corre en el servicio del sistema, así que **no se corta al apagar la
+pantalla ni al salir de la app**, y al terminar basta con tocar su notificación
+para instalar.
 
 Publicar una versión es empujar una etiqueta `v*`; el resto lo hace CI. Ver
 [docs/RELEASES.md](docs/RELEASES.md).

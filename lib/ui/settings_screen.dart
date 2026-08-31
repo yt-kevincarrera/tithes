@@ -57,6 +57,7 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _editEndpoint(context, ref, endpoint),
           ),
+          const _TokenExpiryTile(),
 
           const Divider(height: 32),
           _SectionTitle('Plantillas'),
@@ -293,6 +294,60 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 }
+
+/// Cuándo caduca el token de elTOQUE.
+///
+/// Un token caducado no rompe la app —se sigue con las tasas guardadas o
+/// escritas a mano— pero sí la deja desactualizada en silencio. Como pedir uno
+/// nuevo tarda dos o tres días, se avisa con mucha antelación.
+class _TokenExpiryTile extends ConsumerWidget {
+  const _TokenExpiryTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final expiry = ref.watch(tokenExpiryProvider).valueOrNull;
+    final daysLeft = ref.watch(tokenDaysLeftProvider);
+
+    if (expiry == null || daysLeft == null) return const SizedBox.shrink();
+
+    final expired = daysLeft < 0;
+    final urgent = daysLeft <= kTokenWarningDays;
+
+    return ListTile(
+      leading: Icon(
+        expired
+            ? Icons.error_outline
+            : urgent
+            ? Icons.schedule
+            : Icons.verified_outlined,
+        color: expired
+            ? theme.colorScheme.error
+            : urgent
+            ? theme.colorScheme.tertiary
+            : theme.colorScheme.onSurfaceVariant,
+      ),
+      title: Text(
+        expired
+            ? 'El token de elTOQUE caducó'
+            : 'Token de elTOQUE: ${_daysText(daysLeft)}',
+      ),
+      subtitle: Text(
+        expired || urgent
+            ? 'Pide uno nuevo en tasas-token.eltoque.com y cámbialo en el '
+                  'servidor. Tarda dos o tres días en llegar.'
+            : 'Caduca el ${formatDateWithYear(expiry)}.',
+      ),
+      isThreeLine: expired || urgent,
+    );
+  }
+}
+
+String _daysText(int days) => switch (days) {
+  0 => 'caduca hoy',
+  1 => 'queda 1 día',
+  _ => 'quedan $days días',
+};
 
 /// Interruptor del aviso para Cashew, con el formato a la vista.
 ///

@@ -1,8 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../domain/income.dart';
 import '../domain/income_draft.dart';
@@ -11,12 +9,13 @@ import '../ui/format.dart';
 import '../ui/income_editor.dart';
 import 'providers.dart';
 
-/// Recoge los slips de nómina que se comparten con la app desde Telegram.
+/// Recoge el texto que otra app comparte con esta.
 ///
-/// Se eligió compartir en vez de leer las notificaciones porque un slip es un
-/// mensaje largo: Android puede truncarlo en la notificación justo antes de la
-/// línea que importa, y leer notificaciones exige permiso sobre **todas** las
-/// del teléfono. Compartir cuesta un toque y entrega el texto entero, siempre.
+/// En la práctica el camino principal es copiar y pegar, porque Telegram no
+/// ofrece "compartir" para los mensajes de un canal: da *Reenviar*, que es
+/// interno suyo, y *Copiar*. Esto queda para cuando el slip llegue por otra vía
+/// —correo, notas, seleccionar el texto a mano— y para no perder el intent si
+/// algún día Telegram lo añade.
 class SlipIntake extends ConsumerStatefulWidget {
   const SlipIntake({super.key, required this.child});
 
@@ -27,44 +26,65 @@ class SlipIntake extends ConsumerStatefulWidget {
 }
 
 class _SlipIntakeState extends ConsumerState<SlipIntake> {
-  StreamSubscription<List<SharedMediaFile>>? _subscription;
+  static const _channel = MethodChannel('dev.selector.diezmo/shared_text');
 
   @override
   void initState() {
     super.initState();
 
-    // Con la app ya abierta.
-    _subscription = ReceiveSharingIntent.instance.getMediaStream().listen(
-      _onShared,
-      onError: (_) {},
-    );
+    // Con la app ya abierta, compartir otro texto llega por aquí.
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'sharedText') {
+        _handle(call.arguments as String?);
+      }
+    });
 
-    // Y lo que la abrió, si venía de un "compartir".
-    ReceiveSharingIntent.instance.getInitialMedia().then((shared) {
-      _onShared(shared);
-      ReceiveSharingIntent.instance.reset();
+    // Y esto recoge lo que abrió la app, que el lado nativo guardó mientras
+    // Dart todavía no existía.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        _handle(await _channel.invokeMethod<String>('takeSharedText'));
+      } on PlatformException {
+        // En un dispositivo sin el canal nativo simplemente no hay nada que
+        // recoger.
+      }
     });
   }
 
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
-
-  void _onShared(List<SharedMediaFile> shared) {
-    final text = shared
-        .where((f) => f.type == SharedMediaType.text)
-        .map((f) => f.path)
-        .join('\n')
-        .trim();
-
-    if (text.isEmpty) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) => importText(ref, text));
+  void _handle(String? text) {
+    final trimmed = text?.trim() ?? '';
+    if (trimmed.isEmpty || !mounted) return;
+    importText(ref, trimmed);
   }
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Importa el slip que haya en el portapapeles.
+///
+/// Es el camino principal, no el de repuesto: en Telegram un mensaje de canal
+/// se copia, no se comparte.
+Future<void> pasteSlipFromClipboard(WidgetRef ref) async {
+  final data = await Clipboard.getData(Clipboard.kTextPlain);
+  final text = data?.text?.trim() ?? '';
+  final context = ref.context;
+
+  if (text.isEmpty) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No hay nada copiado. Mantén pulsado el slip en Telegram y dale a '
+            'Copiar.',
+          ),
+        ),
+      );
+    }
+    return;
+  }
+
+  await importText(ref, text);
 }
 
 /// Parsea un texto compartido o pegado y abre el formulario ya relleno.

@@ -191,6 +191,82 @@ fechas.
 **Ajustes.** Plantillas, tasas (ver y sobrescribir a mano), % del diezmo,
 exportar/importar JSON.
 
+## Importar el slip de nómina
+
+El slip llega por un canal de Telegram al que el usuario no tiene permisos de
+administrador, así que un bot propio dentro del canal queda descartado, y una
+sesión MTProto en un servidor daría acceso a todo su Telegram para leer un solo
+canal. Queda el teléfono.
+
+De las dos formas de leerlo en el teléfono, la lectura de notificaciones se
+descartó: un slip es un mensaje largo que Android puede truncar justo antes de
+`Final Pay (CUP)`, y esa lectura exige permiso sobre **todas** las
+notificaciones.
+
+Quedaba compartir, pero **Telegram no ofrece "compartir" para los mensajes de un
+canal**: da *Reenviar*, que es interno suyo, y *Copiar*. Así que el camino
+principal es copiar y pegar, con un botón visible en la pantalla de inicio. El
+intent de compartir se deja declarado para cuando el slip llegue por otra vía.
+
+Del mensaje se toman `Final Pay (CUP)`, `Salario Tropipay USD` y `Bono`. Los
+desgloses (`Salario Quincenal CUP`, `Base Impositiva`) y las deducciones son de
+donde sale el Final Pay, y sumarlos contaría el mismo dinero dos veces. La
+aritmética de los slips reales lo confirma en las dos direcciones:
+
+```
+33.250,00 − 4.693,50 − 2.950,00 = 25.606,50  = Final Pay
+33.750,00 − 4.793,50 − 3.000,00 = 25.956,50  = Final Pay
+```
+
+El Final Pay **no** incluye los USD de Tropipay ni el Bono, así que esos sí se
+suman aparte. El slip no dice la moneda del Bono, a diferencia de los campos en
+CUP, que la llevan en la etiqueta; el usuario confirmó que es USD.
+
+`Pago Vacaciones` se ignora por ahora: tampoco está dentro del Final Pay, pero
+no está claro que sea dinero cobrado y las cifras vistas son de céntimos.
+
+Los números del slip usan siempre coma para los miles y punto para los
+decimales, a veces con tres cifras decimales. Tienen su propio conversor: el de
+la entrada del usuario tiene que **adivinar** cuál de los dos separadores es el
+decimal, y aquí adivinar solo introduciría errores.
+
+### La fecha
+
+El ingreso se fecha **el día en que llega el slip**, no al cierre del período.
+Los slips llegan con retraso —el de la primera quincena sobre el día 20, el de
+la segunda a principios del mes siguiente— y fecharlos al cierre haría que
+entraran marcados como atrasados cada vez que se hubiera pagado el diezmo entre
+medias.
+
+El período vive en dos sitios: en el concepto (`Salario 1–15 ago`), que lo hace
+legible, y en la clave de origen (`slip:2026-08-01_2026-08-15`), que identifica
+el slip. Reenviar el mismo slip se reconoce y se pregunta, en vez de duplicar un
+salario en silencio.
+
+Consecuencia aceptada: en el historial filtrado por mes, el salario de la
+segunda quincena de agosto aparece bajo septiembre. Es correcto —el diezmo es
+sobre lo que se recibe cuando se recibe— y el concepto lo desambigua.
+
+La `Payment Rate` del slip se ignora: es la tasa interna de la nómina, y el
+diezmo se valora con la de elTOQUE del día en que se paga.
+
+### Registrar el salario a mano
+
+El concepto de una plantilla admite `{quincena}`, que se resuelve al usarla.
+Pone la quincena **que acaba de cerrar**, no la en curso, porque el salario
+siempre llega después del período que paga.
+
+## Avisar a otra app
+
+Opcional, apagado por defecto. Cada ingreso registrado emite una notificación
+por monto —título el concepto, cuerpo `25606.50 CUP`— para que Cashew la capture
+y cree la transacción. El cuerpo es deliberadamente pobre, sin separador de
+miles, porque cuanto más simple sea menos se equivoca el extractor de Cashew.
+Ajustes enseña el formato para poder configurarlo sin adivinar.
+
+Solo se emite al **crear** un ingreso: reeditarlo duplicaría la transacción en
+la otra app.
+
 ## Distribución y actualizaciones
 
 La app no va a Play Store. Se distribuye como APK desde las releases de
@@ -214,6 +290,13 @@ Dos restricciones mandan aquí:
 
 Las versiones se comparan como números, no como texto: `1.10.0` tiene que salir
 posterior a `1.9.0`.
+
+La descarga la hace el **servicio de descargas de Android**, no una petición
+HTTP dentro de la app. Un APK son decenas de megas sobre una conexión lenta, y
+una descarga que vive en el proceso de la app se corta en cuanto se apaga la
+pantalla o se cambia de aplicación. De paso, el sistema pone su propia
+notificación con barra de progreso y, al terminar, tocarla abre el instalador
+aunque la app ya no esté delante.
 
 ## Testing
 

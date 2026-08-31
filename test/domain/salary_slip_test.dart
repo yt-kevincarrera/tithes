@@ -32,7 +32,101 @@ Seguridad Social 1 (D): \$ 2,950
 Final Pay (CUP): \$ 25,606.50
 ''';
 
+/// El otro formato que llega: trae un bono y cambia los nombres de algunas
+/// deducciones. También real, con las cifras cambiadas.
+const _slipConBono = '''
+Salary Slip
+Kevin Carrera Calzado
+
+Status: Submitted
+Total Gross Monthly Salary: \$ 67,250.00
+Personal Income Taxes: 4,743.500
+Social Security Contribution: 2,975
+Payment Rate: 675
+
+Payroll Period
+From: 16-07-2026
+To: 31-07-2026
+
+Earnings
+Salario Quincenal CUP Acumulado V: \$ 33,750
+Salario Quincenal CUP: \$ 33,750
+Base Impositiva (CUP): \$ 67,250
+Salario Banco CUP: \$ 25,956.50
+Salario Tropipay USD: \$ 200
+Bono: \$ 100
+
+Deductions
+Ingresos Personales 2 (D): \$ 4,793.50
+Seguridad Social 2 (D): \$ 3,000
+
+Final Pay (CUP): \$ 25,956.50
+''';
+
 void main() {
+  group('el slip con bono', () {
+    test('coge el bono además del salario', () {
+      final slip = SalarySlipParser.parse(_slipConBono);
+
+      expect(slip.lines, [
+        const IncomeLine(amountCents: 2595650, currency: Currency.cup),
+        const IncomeLine(amountCents: 20000, currency: Currency.usd),
+        const IncomeLine(amountCents: 10000, currency: Currency.usd),
+      ]);
+    });
+
+    test(
+      'el bono no está dentro del Final Pay, así que tiene que sumarse',
+      () {
+        // 33.750 − 4.793,50 − 3.000 = 25.956,50, que es exactamente el Final
+        // Pay. El bono queda fuera de esa cuenta: ignorarlo sería calcular el
+        // diezmo de menos.
+        final slip = SalarySlipParser.parse(_slipConBono);
+        final cup = slip.lines.firstWhere((l) => l.currency == Currency.cup);
+
+        expect(cup.amountCents, 2595650);
+        expect(
+          slip.lines.where((l) => l.currency == Currency.usd).length,
+          2,
+          reason: 'Tropipay y bono son dos cobros distintos',
+        );
+      },
+    );
+
+    test('sigue ignorando los desgloses y la base impositiva', () {
+      final montos = SalarySlipParser.parse(
+        _slipConBono,
+      ).lines.map((l) => l.amountCents).toList();
+
+      expect(montos, isNot(contains(3375000))); // Salario Quincenal
+      expect(montos, isNot(contains(6725000))); // Base Impositiva
+      expect(montos, isNot(contains(479350))); // Deducción
+      expect(montos, hasLength(3));
+    });
+
+    test('lee su período, que cruza el fin de mes', () {
+      final slip = SalarySlipParser.parse(_slipConBono);
+
+      expect(slip.conceptLabel(), 'Salario 16–31 jul');
+      expect(slip.sourceKey, 'slip:2026-07-16_2026-07-31');
+    });
+
+    test('un slip sin bono no inventa una línea', () {
+      expect(SalarySlipParser.parse(_slip).lines, hasLength(2));
+    });
+
+    test('"Bono Navidad" no se confunde con "Bono"', () {
+      // El campo tiene que ser exactamente "Bono:". Si algún día aparece otro
+      // que empiece igual, mejor ignorarlo que meter un importe equivocado.
+      final slip = SalarySlipParser.parse(
+        'Final Pay (CUP): \$ 100\nBono Navidad: \$ 5000',
+      );
+
+      expect(slip.lines, hasLength(1));
+      expect(slip.lines.single.currency, Currency.cup);
+    });
+  });
+
   group('reconocer un slip', () {
     test('reconoce el slip', () {
       expect(SalarySlipParser.looksLikeSlip(_slip), isTrue);

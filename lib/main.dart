@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'app/slip_intake.dart';
+import 'data/update_service.dart';
 import 'ui/home_screen.dart';
 import 'ui/theme.dart';
 
@@ -11,6 +12,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Sin esto los nombres de mes y las fechas salen en inglés.
   await initializeDateFormatting('es');
+  // La descarga de actualizaciones la lleva el servicio de Android, así que su
+  // notificación se configura antes de que pueda arrancar ninguna.
+  UpdateService.configureNotifications();
   runApp(const ProviderScope(child: ThitesApp()));
 }
 

@@ -73,6 +73,22 @@ final announceIncomesProvider = StreamProvider<bool>(
   (ref) => ref.watch(repositoryProvider).watchAnnounceIncomes(),
 );
 
+final tokenExpiryProvider = StreamProvider<DateTime?>(
+  (ref) => ref.watch(repositoryProvider).watchTokenExpiry(),
+);
+
+/// Días que le quedan al token de elTOQUE, o null si no se sabe.
+///
+/// Negativo si ya caducó. Se avisa desde 45 días antes porque pedir uno nuevo a
+/// elTOQUE tarda dos o tres días y hay que dejar margen para acordarse.
+final tokenDaysLeftProvider = Provider<int?>((ref) {
+  final expiry = ref.watch(tokenExpiryProvider).valueOrNull;
+  if (expiry == null) return null;
+  return expiry.difference(DateTime.now()).inDays;
+});
+
+const kTokenWarningDays = 45;
+
 /// Emite el aviso para la otra app de finanzas, pero solo si está activado.
 ///
 /// La comprobación vive aquí y no en cada pantalla para que no se pueda olvidar
@@ -210,6 +226,7 @@ class RatesRefresher extends Notifier<RatesRefreshState> {
         values: fetched.values,
         asOf: fetched.asOf,
       );
+      await repo.setTokenExpiry(fetched.tokenExpiresAt);
       state = RatesRefreshState(wasStale: fetched.isStale);
     } on RatesApiException catch (error) {
       state = RatesRefreshState(error: error.message);

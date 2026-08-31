@@ -90,7 +90,34 @@ async function fetchRates(token) {
     rates: { CUP: 100, ...rates },
     fetchedAt: new Date().toISOString(),
     source: 'eltoque',
+    tokenExpiresAt: tokenExpiry(token),
   };
+}
+
+/// Cuándo caduca el token, leído del propio token.
+///
+/// Los de elTOQUE son JWT con una expiración fija de un año, y pedir uno nuevo
+/// tarda dos o tres días. El día que caduque, el proxy dejará de responder y la
+/// app se quedaría con las tasas viejas sin decir nada, así que la fecha viaja
+/// en cada respuesta para poder avisar con tiempo.
+///
+/// Solo se lee el contenido, no se verifica la firma: no somos quien la valida,
+/// y aquí solo interesa la fecha.
+function tokenExpiry(token) {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+
+    const decoded = JSON.parse(
+      Buffer.from(payload, 'base64url').toString('utf8'),
+    );
+    return typeof decoded.exp === 'number'
+      ? new Date(decoded.exp * 1000).toISOString()
+      : null;
+  } catch {
+    // Un token con otro formato no es motivo para tumbar la respuesta.
+    return null;
+  }
 }
 
 /// Saca las tasas de la respuesta sin depender de su forma exacta.

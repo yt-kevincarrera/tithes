@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/providers.dart';
@@ -18,7 +17,7 @@ import 'settings_screen.dart';
 import 'theme.dart';
 import 'widgets/update_banner.dart';
 
-enum _HomeAction { pasteSlip, checkUpdate }
+enum _HomeAction { checkUpdate }
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -39,25 +38,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // usuario y no se le dice nada.
       ref.read(updateControllerProvider.notifier).check();
     });
-  }
-
-  /// Camino alternativo al de compartir: copiar el slip y pegarlo aquí.
-  ///
-  /// Existe porque compartir depende de que Telegram ofrezca la app en su hoja
-  /// de compartir, y copiar el texto siempre funciona.
-  Future<void> _pasteSlip() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text?.trim() ?? '';
-
-    if (text.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay texto copiado.')),
-      );
-      return;
-    }
-
-    await importText(ref, text);
   }
 
   /// Comprobación manual. A diferencia de la del arranque, esta sí dice algo
@@ -104,18 +84,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           PopupMenuButton<_HomeAction>(
             tooltip: 'Más',
             onSelected: (action) => switch (action) {
-              _HomeAction.pasteSlip => _pasteSlip(),
               _HomeAction.checkUpdate => _checkUpdate(),
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _HomeAction.pasteSlip,
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.content_paste_outlined),
-                  title: Text('Pegar slip de nómina'),
-                ),
-              ),
               PopupMenuItem(
                 value: _HomeAction.checkUpdate,
                 child: ListTile(
@@ -160,6 +131,7 @@ class _HomeBody extends ConsumerWidget {
       children: [
         const UpdateBanner(),
         _DebtCard(summary: summary),
+        const _TokenWarning(),
         const SizedBox(height: 16),
         if (summary.missingRates.isNotEmpty)
           _MissingRatesNotice(missing: summary.missingRates)
@@ -171,29 +143,34 @@ class _HomeBody extends ConsumerWidget {
             icon: const Icon(Icons.volunteer_activism_outlined),
             label: const Text('Pagar diezmo'),
           ),
-        if (templates.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          Text(
-            'Registrar rápido',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+        const SizedBox(height: 24),
+        Text(
+          'Registrar rápido',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            // Primero y siempre visible: es el camino habitual del salario.
+            // Telegram no ofrece "compartir" para los mensajes de un canal, así
+            // que se copia el slip allí y se pega aquí.
+            ActionChip(
+              avatar: const Icon(Icons.content_paste_outlined, size: 18),
+              label: const Text('Pegar slip'),
+              onPressed: () => pasteSlipFromClipboard(ref),
             ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final template in templates)
-                ActionChip(
-                  avatar: const Icon(Icons.bolt_outlined, size: 18),
-                  label: Text(template.name),
-                  onPressed: () =>
-                      showIncomeEditor(context, template: template),
-                ),
-            ],
-          ),
-        ],
+            for (final template in templates)
+              ActionChip(
+                avatar: const Icon(Icons.bolt_outlined, size: 18),
+                label: Text(template.name),
+                onPressed: () => showIncomeEditor(context, template: template),
+              ),
+          ],
+        ),
         const SizedBox(height: 24),
         _PendingSection(summary: summary),
       ],
@@ -390,6 +367,66 @@ class _RateStatus extends ConsumerWidget {
           child: const Text('Tasas'),
         ),
       ],
+    );
+  }
+}
+
+/// Aviso de que el token de elTOQUE se acaba.
+///
+/// Solo aparece cuando queda poco. Un token caducado no rompe nada —quedan las
+/// tasas guardadas y las escritas a mano— pero deja de actualizarse **en
+/// silencio**, y conseguir uno nuevo tarda días. Este aviso existe para que eso
+/// no pille por sorpresa.
+class _TokenWarning extends ConsumerWidget {
+  const _TokenWarning();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final daysLeft = ref.watch(tokenDaysLeftProvider);
+    if (daysLeft == null || daysLeft > kTokenWarningDays) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+    final expired = daysLeft < 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: expired
+              ? theme.colorScheme.errorContainer
+              : theme.colorScheme.tertiaryContainer,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              expired ? Icons.error_outline : Icons.schedule,
+              size: 20,
+              color: expired
+                  ? theme.colorScheme.onErrorContainer
+                  : theme.colorScheme.onTertiaryContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                expired
+                    ? 'El token de elTOQUE caducó: las tasas ya no se '
+                          'actualizan. Pide uno nuevo.'
+                    : 'El token de elTOQUE caduca en $daysLeft días. Pedir '
+                          'uno nuevo tarda dos o tres.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: expired
+                      ? theme.colorScheme.onErrorContainer
+                      : theme.colorScheme.onTertiaryContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

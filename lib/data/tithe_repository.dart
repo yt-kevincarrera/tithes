@@ -17,6 +17,7 @@ const _uuid = Uuid();
 const _kTitheBasisPoints = 'tithe_basis_points';
 const _kRatesEndpoint = 'rates_endpoint';
 const _kAnnounceIncomes = 'announce_incomes';
+const _kTokenExpiresAt = 'token_expires_at';
 const _kDefaultTitheBasisPoints = 1000; // 10 %
 
 /// Única puerta entre el dominio y SQLite.
@@ -536,4 +537,25 @@ class TitheRepository {
           value: enabled.toString(),
         ),
       );
+
+  /// Cuándo caduca el token de elTOQUE, según lo último que dijo el proxy.
+  Stream<DateTime?> watchTokenExpiry() {
+    final query = _db.select(_db.settings)
+      ..where((s) => s.key.equals(_kTokenExpiresAt));
+    return query.watchSingleOrNull().map(
+      (row) => row == null ? null : DateTime.tryParse(row.value),
+    );
+  }
+
+  Future<void> setTokenExpiry(DateTime? expiresAt) async {
+    if (expiresAt == null) return;
+    await _db
+        .into(_db.settings)
+        .insertOnConflictUpdate(
+          SettingsCompanion.insert(
+            key: _kTokenExpiresAt,
+            value: expiresAt.toIso8601String(),
+          ),
+        );
+  }
 }

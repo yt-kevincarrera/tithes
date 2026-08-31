@@ -32,6 +32,7 @@ class FetchedRates {
     required this.values,
     required this.asOf,
     required this.isStale,
+    required this.tokenExpiresAt,
   });
 
   /// Centavos de CUP por unidad de cada moneda.
@@ -40,6 +41,12 @@ class FetchedRates {
 
   /// True si el proxy no pudo hablar con elTOQUE y sirvió una copia vieja.
   final bool isStale;
+
+  /// Cuándo caduca el token de elTOQUE que usa el proxy, si lo dice.
+  ///
+  /// Pedir uno nuevo tarda dos o tres días, así que hay que avisar con tiempo:
+  /// el día que caduque, la app se quedaría con las tasas viejas sin más.
+  final DateTime? tokenExpiresAt;
 }
 
 /// Cliente del proxy de tasas. No sabe nada de elTOQUE: esa complejidad vive en
@@ -111,6 +118,9 @@ class RatesApi {
       values: values,
       asOf: _parseDate(body['date']) ?? DateTime.now(),
       isStale: body['stale'] == true,
+      tokenExpiresAt: DateTime.tryParse(
+        body['tokenExpiresAt']?.toString() ?? '',
+      ),
     );
   }
 
