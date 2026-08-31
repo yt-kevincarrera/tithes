@@ -295,7 +295,7 @@ class _RateStatus extends ConsumerWidget {
         RateSource.api => 'elToque',
         RateSource.cache => 'elToque',
       };
-      label = 'Tasa del ${formatRelativeDate(rates!.asOf)} · $origin';
+      label = 'Tasa ${formatRelativeDatePhrase(rates!.asOf)} · $origin';
     }
 
     return Row(

@@ -82,6 +82,26 @@ void main() {
     });
   });
 
+  group('fecha con preposición', () {
+    final hoy = DateTime(2026, 8, 31);
+
+    test('las que se dicen con palabras llevan "de"', () {
+      expect(formatRelativeDatePhrase(hoy, now: hoy), 'de hoy');
+      expect(formatRelativeDatePhrase(DateTime(2026, 8, 30), now: hoy), 'de ayer');
+      expect(
+        formatRelativeDatePhrase(DateTime(2026, 8, 28), now: hoy),
+        'de hace 3 días',
+      );
+    });
+
+    test('las que llevan número usan "del"', () {
+      expect(
+        formatRelativeDatePhrase(DateTime(2026, 7, 1), now: hoy),
+        startsWith('del '),
+      );
+    });
+  });
+
   group('porcentaje', () {
     test('un porcentaje redondo va sin decimales', () {
       expect(formatBasisPoints(1000), '10 %');

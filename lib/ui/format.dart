@@ -100,3 +100,16 @@ String formatBasisPoints(int basisPoints) {
       : percent.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll('.', ',');
   return '$text %';
 }
+
+/// La misma fecha relativa, ya con su preposición: "de hoy", "de ayer",
+/// "de hace 3 días", "del 28 ago".
+///
+/// Existe porque interpolar "Tasa del ${...}" produce "Tasa del hoy": el
+/// artículo depende de si la fecha se dice con palabras o con número.
+String formatRelativeDatePhrase(DateTime date, {DateTime? now}) {
+  final relative = formatRelativeDate(date, now: now);
+  final needsArticle = !(relative == 'hoy' ||
+      relative == 'ayer' ||
+      relative.startsWith('hace '));
+  return needsArticle ? 'del $relative' : 'de $relative';
+}
