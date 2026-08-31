@@ -24,6 +24,40 @@ ese día quedan congeladas dentro del pago y el historial ya no se mueve.
 
 **Las ofrendas van aparte.** No se calculan ni se deben; solo se registran.
 
+## Importar el slip de nómina
+
+Comparte el slip desde Telegram con la app —o cópialo y usa *Pegar slip*— y el
+formulario llega relleno: `Final Pay (CUP)` y `Salario Tropipay USD` como un
+solo ingreso de dos monedas.
+
+Del slip se toman **solo esas dos líneas**. Los desgloses (`Salario Quincenal
+CUP`, `Salario Banco CUP`) y las deducciones ya están dentro del Final Pay, así
+que sumarlos contaría el mismo dinero dos veces.
+
+Se eligió compartir en vez de leer las notificaciones de Telegram por dos
+razones: un slip es un mensaje largo y Android puede truncarlo justo antes de la
+línea que importa, y leer notificaciones exige permiso sobre **todas** las del
+teléfono. Compartir cuesta un toque y entrega el texto entero, siempre.
+
+**La fecha del ingreso es el día en que llega el slip**, no el cierre de la
+quincena. Los slips llegan con días de retraso —el de la primera quincena sobre
+el 20, el de la segunda a principios del mes siguiente— y fecharlos al cierre
+haría que entraran marcados como atrasados cada vez que se hubiera pagado el
+diezmo entre medias. El período va en el concepto (`Salario 1–15 ago`) y en la
+clave que identifica el slip, así que reenviar el mismo se reconoce y se pregunta
+en vez de duplicar un salario en silencio.
+
+La `Payment Rate` que trae el slip se ignora a propósito: es la tasa interna de
+la nómina, y el diezmo se calcula con la de elTOQUE del día en que se paga.
+
+## Avisar a otra app
+
+Opcional y apagado por defecto. Con ello activado, cada ingreso registrado emite
+una notificación por monto —título el concepto, cuerpo `25606.50 CUP`— para que
+[Cashew](https://github.com/jameskokoska/Cashew) la capture y cree la
+transacción. Ajustes enseña el formato exacto para poder configurar Cashew
+mirándolo.
+
 ## Correr y compilar
 
 ```bash
