@@ -62,9 +62,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         .read(repositoryProvider)
         .registerPayment(
           date: _date,
+          // CUP no lleva tasa: guardarla seria ruido en el historial.
           ratesUsed: {
             for (final subtotal in calculation.subtotals)
-              subtotal.currency: subtotal.rateCents,
+              if (subtotal.currency != Currency.cup)
+                subtotal.currency: subtotal.rateCents,
           },
           grossCupCents: calculation.grossCupCents,
           computedCupCents: calculation.titheCupCents,

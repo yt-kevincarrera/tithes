@@ -38,7 +38,9 @@ dependencies:
   drift: ^2.34.3
   drift_flutter: ^0.3.1
   http: ^1.6.0
-  intl: 0.20.2
+  # Rango, no versión exacta: flutter_localizations pide una intl distinta
+  # según la versión del SDK, y CI no siempre corre la misma que este equipo.
+  intl: ">=0.20.2 <0.21.0"
   share_plus: ^13.3.0
   file_picker: ^12.1.2
   uuid: ^4.6.0

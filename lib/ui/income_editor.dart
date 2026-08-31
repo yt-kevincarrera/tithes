@@ -7,6 +7,7 @@ import '../domain/currency.dart';
 import '../domain/income.dart';
 import '../domain/income_template.dart';
 import 'format.dart';
+import 'theme.dart';
 import 'widgets/currency_selector.dart';
 import 'widgets/sheet_scaffold.dart';
 
@@ -359,7 +360,7 @@ class _LineEditor extends StatelessWidget {
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                   ],
                   style: theme.textTheme.headlineSmall?.copyWith(
-                    fontFeatures: const [],
+                    fontFeatures: tabularFigures,
                     fontWeight: FontWeight.w600,
                   ),
                   decoration: const InputDecoration(
