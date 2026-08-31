@@ -20,13 +20,13 @@ vercel env add ELTOQUE_TOKEN production
 vercel --prod
 ```
 
-Anota la URL que devuelve y ponla en `lib/data/rates_api.dart`
-(`kRatesEndpoint`).
+Desplegado en **https://diezmo-tasas.vercel.app/api/rates**, que es la URL que
+la app trae por defecto.
 
 ## Probar
 
 ```bash
-curl https://<tu-proyecto>.vercel.app/api/rates
+curl https://diezmo-tasas.vercel.app/api/rates
 ```
 
 ## Respuesta
@@ -34,14 +34,14 @@ curl https://<tu-proyecto>.vercel.app/api/rates
 ```json
 {
   "date": "2026-08-31",
-  "rates": { "CUP": 100, "USD": 44000, "EUR": 48000, "MLC": 19000 },
+  "rates": { "CUP": 100, "USD": 67500, "EUR": 77000, "MLC": 44445 },
   "fetchedAt": "2026-08-31T12:00:00.000Z",
   "source": "eltoque"
 }
 ```
 
-Los valores son **centavos de CUP por una unidad** de la moneda: `44000` son
-440,00 CUP por 1 USD. Enteros a propósito, para que ni el servidor ni la app
+Los valores son **centavos de CUP por una unidad** de la moneda: `67500` son
+675,00 CUP por 1 USD. Enteros a propósito, para que ni el servidor ni la app
 hagan aritmética de dinero en coma flotante.
 
 Si elTOQUE falla y hay una respuesta buena anterior en memoria, se devuelve esa
@@ -57,9 +57,17 @@ y 10 por segundo, así que queda holgadísimo.
 
 ## Formato de la respuesta de elTOQUE
 
-El OpenAPI de elTOQUE no documenta el cuerpo del 200. `normalizeRates` recorre
-la respuesta buscando claves de moneda conocidas a cualquier profundidad, en vez
-de asumir una estructura fija. El euro llega como `ECU`, no como `EUR`.
+Verificado contra la API real:
+
+```json
+{"date":"2026-08-31","hour":14,"tasas":{"BTC":745.97,"ECU":770.0,
+ "MLC":444.45,"TRX":21.47,"USD":675.0,"USDT_TRC20":714.08}}
+```
+
+El euro llega como `ECU`, no como `EUR`. El OpenAPI no documenta este cuerpo, así
+que `normalizeRates` recorre la respuesta buscando claves de moneda conocidas a
+cualquier profundidad en vez de asumir una estructura fija; las divisas que la
+app no maneja (BTC, TRX, USDT) se ignoran solas.
 
 ## Créditos
 

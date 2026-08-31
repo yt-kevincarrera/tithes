@@ -12,7 +12,10 @@ import '../domain/currency.dart';
 ///
 /// y el usuario puede cambiarla desde Ajustes sin recompilar, que es lo que
 /// permite tener la app funcionando antes de que el proxy exista.
-const kDefaultRatesEndpoint = String.fromEnvironment('RATES_ENDPOINT');
+const kDefaultRatesEndpoint = String.fromEnvironment(
+  'RATES_ENDPOINT',
+  defaultValue: 'https://diezmo-tasas.vercel.app/api/rates',
+);
 
 class RatesApiException implements Exception {
   RatesApiException(this.message);
