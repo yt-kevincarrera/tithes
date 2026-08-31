@@ -60,13 +60,38 @@ class IncomeAnnouncer {
   static String preview(int amountCents, Currency currency) =>
       '${_plain(amountCents)} ${currency.code}';
 
+  /// Junta las líneas de la misma moneda en una sola, sumando.
+  ///
+  /// Un slip con bono trae los 200 USD del salario y los 100 del bono en dos
+  /// líneas, y notificarlas por separado crearía dos transacciones distintas de
+  /// la misma nómina en la otra app. Dentro de la app sí se quedan separadas:
+  /// ahí sirve ver de dónde salió cada importe.
+  ///
+  /// Se conserva el orden en que aparecen las monedas.
+  static List<IncomeLine> mergeByCurrency(List<IncomeLine> lines) {
+    final totals = <Currency, int>{};
+    for (final line in lines) {
+      totals.update(
+        line.currency,
+        (previous) => previous + line.amountCents,
+        ifAbsent: () => line.amountCents,
+      );
+    }
+
+    return [
+      for (final entry in totals.entries)
+        IncomeLine(amountCents: entry.value, currency: entry.key),
+    ];
+  }
+
   Future<void> announce(Income income) async {
     await _ensureReady();
 
     final title = income.concept.isEmpty ? 'Ingreso' : income.concept;
+    final lines = mergeByCurrency(income.lines);
 
-    for (var i = 0; i < income.lines.length; i++) {
-      final line = income.lines[i];
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
       await _plugin.show(
         // Un id por línea y por ingreso: si se emiten dos avisos a la vez, el
         // segundo no puede pisar al primero antes de que Cashew lo lea.

@@ -67,10 +67,11 @@ la nómina, y el diezmo se calcula con la de elTOQUE del día en que se paga.
 ## Avisar a otra app
 
 Opcional y apagado por defecto. Con ello activado, cada ingreso registrado emite
-una notificación por monto —título el concepto, cuerpo `25606.50 CUP`— para que
+**una notificación por moneda** —título el concepto, cuerpo `25606.50 CUP`— para que
 [Cashew](https://github.com/jameskokoska/Cashew) la capture y cree la
-transacción. Ajustes enseña el formato exacto para poder configurar Cashew
-mirándolo.
+transacción. Los importes de la misma moneda se suman en un solo aviso: un slip
+con bono trae 200 USD de salario y 100 de bono, y son un cobro, no dos. Ajustes
+enseña el formato exacto para poder configurar Cashew mirándolo.
 
 ## Correr y compilar
 

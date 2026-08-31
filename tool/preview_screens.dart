@@ -17,6 +17,7 @@ import 'package:thites/domain/income.dart';
 import 'package:thites/ui/history_screen.dart';
 import 'package:thites/ui/home_screen.dart';
 import 'package:thites/ui/payment_screen.dart';
+import 'package:thites/ui/settings_screen.dart';
 import 'package:thites/ui/theme.dart';
 
 /// Renderiza pantallas a PNG con datos de ejemplo, para poder mirarlas sin
@@ -48,6 +49,14 @@ void main() {
 
   testWidgets('pago', (tester) async {
     await _capture(tester, const PaymentScreen(), 'build/preview/pago.png');
+  });
+
+  testWidgets('ajustes', (tester) async {
+    await _capture(
+      tester,
+      const SettingsScreen(),
+      'build/preview/ajustes.png',
+    );
   });
 }
 
@@ -111,6 +120,9 @@ final _boundary = GlobalKey();
 /// varios meses de historia, que es cuando la pantalla tiene algo que enseñar.
 Future<void> _seed(TitheRepository repo) async {
   await repo.setTitheBasisPoints(1000);
+  await repo.setAnnounceIncomes(true);
+  await repo.setRatesEndpoint('https://diezmo-tasas.vercel.app/api/rates');
+  await repo.setTokenExpiry(DateTime(2026, 11, 4));
   await repo.saveDownloadedRates(
     values: const {
       Currency.usd: 67500,

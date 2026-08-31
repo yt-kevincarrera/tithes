@@ -415,15 +415,25 @@ class _AnnounceTile extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
+                  // Dos avisos, uno por moneda: es lo que saldría de un slip
+                  // con bono, donde el salario y el bono en USD se suman en uno
+                  // solo en vez de crear dos transacciones de la misma nómina.
                   Text('Salario 1–15 ago', style: theme.textTheme.titleSmall),
                   Text(
                     IncomeAnnouncer.preview(2560650, Currency.cup),
                     style: theme.textTheme.bodyMedium,
                   ),
+                  const SizedBox(height: 6),
+                  Text('Salario 1–15 ago', style: theme.textTheme.titleSmall),
+                  Text(
+                    IncomeAnnouncer.preview(30000, Currency.usd),
+                    style: theme.textTheme.bodyMedium,
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    'El título es el concepto y el cuerpo el monto, con punto '
-                    'decimal y sin separador de miles.',
+                    'Un aviso por moneda: el título es el concepto y el cuerpo '
+                    'el monto, con punto decimal y sin separador de miles. Los '
+                    'importes de la misma moneda se suman en uno solo.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.outline,
                     ),
