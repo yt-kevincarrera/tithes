@@ -6,9 +6,61 @@ import '../app/providers.dart';
 import '../domain/currency.dart';
 import '../domain/income.dart';
 import '../domain/income_template.dart';
+import '../domain/period_label.dart';
 import 'format.dart';
 import 'widgets/currency_selector.dart';
 import 'widgets/sheet_scaffold.dart';
+
+/// Explica `{quincena}` enseñando el resultado, no la regla.
+///
+/// Se actualiza mientras se escribe: ver "Salario 1–15 ago" aparecer debajo
+/// convence más que cualquier texto de ayuda.
+class _PlaceholderHint extends StatelessWidget {
+  const _PlaceholderHint({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        final uses = value.text.contains(kFortnightPlaceholder);
+
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: uses
+              ? Text(
+                  'Hoy quedaría: "${expandPlaceholders(value.text)}"',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
+                )
+              : InkWell(
+                  onTap: () {
+                    final base = value.text.trim();
+                    controller.text = base.isEmpty
+                        ? 'Salario $kFortnightPlaceholder'
+                        : '$base $kFortnightPlaceholder';
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      'Toca para añadir $kFortnightPlaceholder y que la '
+                      'quincena se escriba sola.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+        );
+      },
+    );
+  }
+}
 
 Future<void> showTemplateEditor(
   BuildContext context, {
@@ -133,9 +185,11 @@ class _TemplateEditorState extends ConsumerState<TemplateEditor> {
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
             labelText: 'Concepto que se rellenará',
-            hintText: 'salario',
+            hintText: 'Salario {quincena}',
           ),
         ),
+        const SizedBox(height: 8),
+        _PlaceholderHint(controller: _concept),
         const SizedBox(height: 20),
         Text(
           'Montos por defecto',

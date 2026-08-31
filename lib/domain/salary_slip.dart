@@ -1,5 +1,6 @@
 import 'currency.dart';
 import 'income.dart';
+import 'period_label.dart';
 
 /// Lo que se ha podido sacar de un slip de nómina.
 class SalarySlip {
@@ -31,16 +32,9 @@ class SalarySlip {
   /// aparece de verdad. Fecharlo al cierre de la quincena haría que cada slip
   /// que llega con unos días de retraso entrara marcado como atrasado si entre
   /// medias se pagó el diezmo.
-  String conceptLabel() {
-    if (periodStart == null || periodEnd == null) return 'Salario';
-    final start = periodStart!;
-    final end = periodEnd!;
-    final sameMonth = start.month == end.month && start.year == end.year;
-    return sameMonth
-        ? 'Salario ${start.day}–${end.day} ${_month(end.month)}'
-        : 'Salario ${start.day} ${_month(start.month)} – '
-              '${end.day} ${_month(end.month)}';
-  }
+  String conceptLabel() => periodStart == null || periodEnd == null
+      ? 'Salario'
+      : 'Salario ${rangeLabel(periodStart!, periodEnd!)}';
 }
 
 String _iso(DateTime? date) => date == null
@@ -49,22 +43,6 @@ String _iso(DateTime? date) => date == null
           '${date.month.toString().padLeft(2, '0')}-'
           '${date.day.toString().padLeft(2, '0')}';
 
-const _months = [
-  'ene',
-  'feb',
-  'mar',
-  'abr',
-  'may',
-  'jun',
-  'jul',
-  'ago',
-  'sep',
-  'oct',
-  'nov',
-  'dic',
-];
-
-String _month(int month) => _months[month - 1];
 
 /// Lee los slips de nómina que llegan por Telegram.
 ///

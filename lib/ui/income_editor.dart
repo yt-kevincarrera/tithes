@@ -7,6 +7,7 @@ import '../domain/currency.dart';
 import '../domain/income.dart';
 import '../domain/income_draft.dart';
 import '../domain/income_template.dart';
+import '../domain/period_label.dart';
 import 'format.dart';
 import 'theme.dart';
 import 'widgets/currency_selector.dart';
@@ -77,7 +78,14 @@ class _IncomeEditorState extends ConsumerState<IncomeEditor> {
 
     _date = source?.date ?? draft?.date ?? DateTime.now();
     _concept = TextEditingController(
-      text: source?.concept ?? draft?.concept ?? template?.concept ?? '',
+      // La plantilla puede traer `{quincena}`, que se resuelve aquí: escribir
+      // "Salario 1–15 ago" a mano cada quincena es justo la fricción que la app
+      // existe para quitar. Al editar un ingreso ya guardado no se toca, que
+      // ahí el texto es el que se guardó.
+      text:
+          source?.concept ??
+          draft?.concept ??
+          expandPlaceholders(template?.concept ?? ''),
     );
     _note = TextEditingController(text: source?.note ?? draft?.note ?? '');
     _showNote = (source?.note ?? draft?.note ?? '').isNotEmpty;
