@@ -82,6 +82,18 @@ void main() {
     });
   });
 
+  group('porcentaje', () {
+    test('un porcentaje redondo va sin decimales', () {
+      expect(formatBasisPoints(1000), '10 %');
+      expect(formatBasisPoints(1200), '12 %');
+    });
+
+    test('con decimales se usa la coma', () {
+      expect(formatBasisPoints(1250), '12,5 %');
+      expect(formatBasisPoints(1205), '12,05 %');
+    });
+  });
+
   group('fechas relativas', () {
     final hoy = DateTime(2026, 8, 31);
 

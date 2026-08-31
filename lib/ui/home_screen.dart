@@ -200,7 +200,7 @@ class _DebtCard extends ConsumerWidget {
             if (calculation != null && !calculation.isEmpty) ...[
               const SizedBox(height: 4),
               Text(
-                '${_percentLabel(calculation.titheBasisPoints)} de '
+                '${formatBasisPoints(calculation.titheBasisPoints)} de '
                 '${formatCentsCompact(calculation.grossCupCents)} CUP pendientes',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onPrimaryContainer.withValues(alpha: 0.75),
@@ -544,12 +544,4 @@ class _ErrorBody extends StatelessWidget {
       child: Text('Algo falló al cargar los datos:\n$error'),
     ),
   );
-}
-
-String _percentLabel(int basisPoints) {
-  final percent = basisPoints / 100;
-  final text = percent == percent.roundToDouble()
-      ? percent.round().toString()
-      : percent.toStringAsFixed(2).replaceAll('.', ',');
-  return '$text %';
 }

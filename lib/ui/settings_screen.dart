@@ -34,7 +34,7 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('Porcentaje del diezmo'),
             subtitle: const Text('Lo normal es 10 %'),
             trailing: Text(
-              '${basisPoints / 100} %',
+              formatBasisPoints(basisPoints),
               style: theme.textTheme.titleMedium,
             ),
             onTap: () => _editPercent(context, ref, basisPoints),

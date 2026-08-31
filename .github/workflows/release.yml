@@ -34,6 +34,11 @@ jobs:
           channel: stable
           cache: true
 
+      # Los tests de la capa de datos abren SQLite en memoria y necesitan la
+      # librería nativa.
+      - name: SQLite
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
       - run: flutter pub get
 
       - name: Generar el código de Drift

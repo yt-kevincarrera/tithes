@@ -86,7 +86,7 @@ class PaymentDetail extends ConsumerWidget {
         ),
         _Line(
           label: 'Porcentaje',
-          value: '${payment.titheBasisPoints / 100} %',
+          value: formatBasisPoints(payment.titheBasisPoints),
         ),
         if (payment.note != null) _Line(label: 'Nota', value: payment.note!),
         if (payment.ratesUsed.isNotEmpty) ...[

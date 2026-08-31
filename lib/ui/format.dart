@@ -91,3 +91,12 @@ String centsToInput(int cents) =>
 
 DateTime _dateOnly(DateTime value) =>
     DateTime(value.year, value.month, value.day);
+
+/// Puntos básicos a porcentaje legible: 1000 -> "10 %", 1250 -> "12,5 %".
+String formatBasisPoints(int basisPoints) {
+  final percent = basisPoints / 100;
+  final text = percent == percent.roundToDouble()
+      ? percent.round().toString()
+      : percent.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll('.', ',');
+  return '$text %';
+}
