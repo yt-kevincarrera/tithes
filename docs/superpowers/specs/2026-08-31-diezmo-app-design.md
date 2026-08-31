@@ -191,6 +191,30 @@ fechas.
 **Ajustes.** Plantillas, tasas (ver y sobrescribir a mano), % del diezmo,
 exportar/importar JSON.
 
+## Distribución y actualizaciones
+
+La app no va a Play Store. Se distribuye como APK desde las releases de
+`yt-kevincarrera/tithes`, y se actualiza sola: al abrirse consulta
+`/releases/latest`, compara la etiqueta con la versión instalada y, si hay una
+más nueva, enseña una barra con un botón que descarga el APK y llama al
+instalador de Android.
+
+El fallo es silencioso a propósito: sin internet, o con GitHub caído, no se
+avisa de nada. La app se abre para registrar un cobro, no para actualizarse.
+
+Dos restricciones mandan aquí:
+
+- **El repositorio es público.** Los assets de una release privada exigen
+  autenticación, y un token dentro del APK es un secreto extraíble.
+- **La firma tiene que ser estable.** Android solo permite actualizar una app en
+  sitio si el APK nuevo lleva la misma clave que el instalado. Por eso hay una
+  clave de release propia, fuera de git, y CI firma con ella desde los secrets
+  del repositorio. La clave de debug que Flutter pone por defecto habría hecho
+  imposible actualizar, porque difiere entre máquinas.
+
+Las versiones se comparan como números, no como texto: `1.10.0` tiene que salir
+posterior a `1.9.0`.
+
 ## Testing
 
 El dominio se prueba exhaustivamente con tests unitarios: cálculo del diezmo,

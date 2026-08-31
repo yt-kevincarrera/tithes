@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Los tests de la capa de datos abren SQLite en memoria.
+      - name: SQLite
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Generar el código de Drift
+        run: dart run build_runner build
+
+      - run: flutter analyze
+
+      - run: flutter test
