@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/providers.dart';
+import '../app/slip_intake.dart';
 import '../app/update_controller.dart';
 import '../domain/currency.dart';
 import '../domain/exchange_rates.dart';
@@ -15,6 +17,8 @@ import 'rate_editor.dart';
 import 'settings_screen.dart';
 import 'theme.dart';
 import 'widgets/update_banner.dart';
+
+enum _HomeAction { pasteSlip, checkUpdate }
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -35,6 +39,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // usuario y no se le dice nada.
       ref.read(updateControllerProvider.notifier).check();
     });
+  }
+
+  /// Camino alternativo al de compartir: copiar el slip y pegarlo aquí.
+  ///
+  /// Existe porque compartir depende de que Telegram ofrezca la app en su hoja
+  /// de compartir, y copiar el texto siempre funciona.
+  Future<void> _pasteSlip() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+
+    if (text.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay texto copiado.')),
+      );
+      return;
+    }
+
+    await importText(ref, text);
+  }
+
+  /// Comprobación manual. A diferencia de la del arranque, esta sí dice algo
+  /// cuando falla o cuando ya estás en la última: la pediste tú.
+  Future<void> _checkUpdate() async {
+    final controller = ref.read(updateControllerProvider.notifier);
+    await controller.check(silent: false);
+    if (!mounted) return;
+
+    final state = ref.read(updateControllerProvider);
+    if (state.available != null) return; // El banner ya lo cuenta.
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(state.error ?? 'Ya tienes la última versión.'),
+      ),
+    );
   }
 
   @override
@@ -58,6 +98,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Ajustes',
+          ),
+          // Lo de uso ocasional va aquí y no como icono suelto: la barra ya
+          // tiene bastante y ninguna de estas dos es de cada día.
+          PopupMenuButton<_HomeAction>(
+            tooltip: 'Más',
+            onSelected: (action) => switch (action) {
+              _HomeAction.pasteSlip => _pasteSlip(),
+              _HomeAction.checkUpdate => _checkUpdate(),
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _HomeAction.pasteSlip,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.content_paste_outlined),
+                  title: Text('Pegar slip de nómina'),
+                ),
+              ),
+              PopupMenuItem(
+                value: _HomeAction.checkUpdate,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.system_update),
+                  title: Text('Buscar actualización'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

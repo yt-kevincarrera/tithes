@@ -28,6 +28,13 @@ class Incomes extends Table {
   TextColumn get paymentId =>
       text().nullable().references(Payments, #id, onDelete: KeyAction.setNull)();
 
+  /// Identifica de dónde salió el ingreso cuando no lo tecleó el usuario, por
+  /// ejemplo `slip:2026-08-15` para un slip de nómina importado.
+  ///
+  /// Es lo que permite avisar de que un slip ya se importó en vez de duplicar
+  /// un salario en silencio.
+  TextColumn get sourceKey => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -142,10 +149,15 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'thites'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(incomes, incomes.sourceKey);
+      }
+    },
     beforeOpen: (details) async {
       // Sin esto SQLite ignora las claves foráneas y los borrados en cascada
       // no ocurren.

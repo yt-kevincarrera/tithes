@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app/providers.dart';
 import '../domain/currency.dart';
 import '../domain/income.dart';
+import '../domain/income_draft.dart';
 import '../domain/income_template.dart';
 import 'format.dart';
 import 'theme.dart';
@@ -19,18 +20,29 @@ Future<void> showIncomeEditor(
   BuildContext context, {
   Income? income,
   IncomeTemplate? template,
+  IncomeDraft? draft,
 }) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  builder: (_) => IncomeEditor(income: income, template: template),
+  builder: (_) =>
+      IncomeEditor(income: income, template: template, draft: draft),
 );
 
 class IncomeEditor extends ConsumerStatefulWidget {
-  const IncomeEditor({super.key, this.income, this.template});
+  const IncomeEditor({
+    super.key,
+    this.income,
+    this.template,
+    this.draft,
+  });
 
   final Income? income;
   final IncomeTemplate? template;
+
+  /// Contenido con el que el formulario llega ya relleno, por ejemplo desde un
+  /// slip de nómina compartido.
+  final IncomeDraft? draft;
 
   @override
   ConsumerState<IncomeEditor> createState() => _IncomeEditorState();
@@ -61,15 +73,16 @@ class _IncomeEditorState extends ConsumerState<IncomeEditor> {
 
     final source = widget.income;
     final template = widget.template;
+    final draft = widget.draft;
 
-    _date = source?.date ?? DateTime.now();
+    _date = source?.date ?? draft?.date ?? DateTime.now();
     _concept = TextEditingController(
-      text: source?.concept ?? template?.concept ?? '',
+      text: source?.concept ?? draft?.concept ?? template?.concept ?? '',
     );
-    _note = TextEditingController(text: source?.note ?? '');
-    _showNote = (source?.note ?? '').isNotEmpty;
+    _note = TextEditingController(text: source?.note ?? draft?.note ?? '');
+    _showNote = (source?.note ?? draft?.note ?? '').isNotEmpty;
 
-    final lines = source?.lines ?? template?.lines;
+    final lines = source?.lines ?? draft?.lines ?? template?.lines;
     _lines = lines == null || lines.isEmpty
         ? [_LineDraft(currency: Currency.cup)]
         : [
@@ -153,7 +166,7 @@ class _IncomeEditorState extends ConsumerState<IncomeEditor> {
     if (lines == null) return;
 
     setState(() => _saving = true);
-    await ref
+    final id = await ref
         .read(repositoryProvider)
         .saveIncome(
           id: widget.income?.id,
@@ -161,7 +174,23 @@ class _IncomeEditorState extends ConsumerState<IncomeEditor> {
           concept: _concept.text.trim(),
           note: _note.text.trim().isEmpty ? null : _note.text.trim(),
           lines: lines,
+          sourceKey: widget.draft?.sourceKey,
         );
+
+    // Solo al crear: reeditar un ingreso no debe volver a avisar a la otra app,
+    // que crearía una transacción duplicada allí.
+    if (widget.income == null) {
+      await ref.read(incomeAnnouncerProvider).announceIfEnabled(
+        Income(
+          id: id,
+          date: _date,
+          concept: _concept.text.trim(),
+          note: null,
+          paymentId: null,
+          lines: lines,
+        ),
+      );
+    }
 
     if (mounted) Navigator.of(context).pop();
   }

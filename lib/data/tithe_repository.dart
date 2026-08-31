@@ -16,6 +16,7 @@ const _uuid = Uuid();
 
 const _kTitheBasisPoints = 'tithe_basis_points';
 const _kRatesEndpoint = 'rates_endpoint';
+const _kAnnounceIncomes = 'announce_incomes';
 const _kDefaultTitheBasisPoints = 1000; // 10 %
 
 /// Única puerta entre el dominio y SQLite.
@@ -94,6 +95,7 @@ class TitheRepository {
     required String concept,
     String? note,
     required List<IncomeLine> lines,
+    String? sourceKey,
   }) async {
     final incomeId = id ?? _uuid.v4();
 
@@ -110,8 +112,10 @@ class TitheRepository {
               date: date,
               concept: Value(concept),
               note: Value(note),
-              // Editar un ingreso no lo desliga de su pago.
+              // Editar un ingreso no lo desliga de su pago ni le borra de dónde
+              // vino.
               paymentId: Value(existing?.paymentId),
+              sourceKey: Value(sourceKey ?? existing?.sourceKey),
             ),
           );
 
@@ -138,6 +142,18 @@ class TitheRepository {
 
   Future<void> deleteIncome(String id) =>
       (_db.delete(_db.incomes)..where((i) => i.id.equals(id))).go();
+
+  /// El ingreso que ya se importó de una fuente concreta, si existe.
+  ///
+  /// Es lo que evita que compartir dos veces el mismo slip duplique un salario
+  /// entero sin que nadie se entere.
+  Future<Income?> incomeBySource(String sourceKey) async {
+    final query = _db.select(_db.incomes)
+      ..where((i) => i.sourceKey.equals(sourceKey))
+      ..limit(1);
+    final found = await _withLines(query.watch()).first;
+    return found.isEmpty ? null : found.single;
+  }
 
   // -------------------------------------------------------------------- pagos
 
@@ -494,5 +510,30 @@ class TitheRepository {
       .into(_db.settings)
       .insertOnConflictUpdate(
         SettingsCompanion.insert(key: _kRatesEndpoint, value: endpoint.trim()),
+      );
+
+  /// Si cada ingreso registrado emite una notificación para que otra app de
+  /// finanzas la capture. Apagado por defecto: nadie quiere notificaciones que
+  /// no ha pedido.
+  Stream<bool> watchAnnounceIncomes() {
+    final query = _db.select(_db.settings)
+      ..where((s) => s.key.equals(_kAnnounceIncomes));
+    return query.watchSingleOrNull().map((row) => row?.value == 'true');
+  }
+
+  Future<bool> announceIncomes() async {
+    final row = await (_db.select(
+      _db.settings,
+    )..where((s) => s.key.equals(_kAnnounceIncomes))).getSingleOrNull();
+    return row?.value == 'true';
+  }
+
+  Future<void> setAnnounceIncomes(bool enabled) => _db
+      .into(_db.settings)
+      .insertOnConflictUpdate(
+        SettingsCompanion.insert(
+          key: _kAnnounceIncomes,
+          value: enabled.toString(),
+        ),
       );
 }

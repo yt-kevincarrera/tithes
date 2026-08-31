@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../data/rates_api.dart';
+import '../data/income_announcer.dart';
 import '../data/tithe_repository.dart';
 import '../domain/currency.dart';
 import '../domain/exchange_rates.dart';
@@ -66,6 +67,37 @@ final titheBasisPointsProvider = StreamProvider<int>(
 
 final ratesEndpointProvider = StreamProvider<String>(
   (ref) => ref.watch(repositoryProvider).watchRatesEndpoint(),
+);
+
+final announceIncomesProvider = StreamProvider<bool>(
+  (ref) => ref.watch(repositoryProvider).watchAnnounceIncomes(),
+);
+
+/// Emite el aviso para la otra app de finanzas, pero solo si está activado.
+///
+/// La comprobación vive aquí y no en cada pantalla para que no se pueda olvidar
+/// en una de ellas y acabar notificando a quien no lo pidió.
+class AnnouncerGate {
+  AnnouncerGate(this._repo, this._announcer);
+
+  final TitheRepository _repo;
+  final IncomeAnnouncer _announcer;
+
+  Future<bool> requestPermission() => _announcer.requestPermission();
+
+  Future<void> announceIfEnabled(Income income) async {
+    if (!await _repo.announceIncomes()) return;
+    try {
+      await _announcer.announce(income);
+    } catch (_) {
+      // Un fallo al notificar no puede tumbar el registro del ingreso, que es
+      // lo único que de verdad importa aquí.
+    }
+  }
+}
+
+final incomeAnnouncerProvider = Provider<AnnouncerGate>(
+  (ref) => AnnouncerGate(ref.watch(repositoryProvider), IncomeAnnouncer()),
 );
 
 /// Todo lo que la pantalla de inicio necesita, ya resuelto.

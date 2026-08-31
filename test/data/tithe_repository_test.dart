@@ -93,6 +93,65 @@ void main() {
     });
   });
 
+  group('origen del ingreso', () {
+    test('encuentra un ingreso por su clave de origen', () async {
+      await repo.saveIncome(
+        date: DateTime(2026, 8, 18),
+        concept: 'Salario 1–15 ago',
+        lines: const [IncomeLine(amountCents: 2560650, currency: Currency.cup)],
+        sourceKey: 'slip:2026-08-01_2026-08-15',
+      );
+
+      final found = await repo.incomeBySource('slip:2026-08-01_2026-08-15');
+
+      expect(found, isNotNull);
+      expect(found!.concept, 'Salario 1–15 ago');
+      expect(found.lines.single.amountCents, 2560650);
+    });
+
+    test('un slip de otro período no se confunde con el ya importado', () async {
+      await repo.saveIncome(
+        date: DateTime(2026, 8, 18),
+        concept: 'Salario 1–15 ago',
+        lines: const [IncomeLine(amountCents: 100, currency: Currency.cup)],
+        sourceKey: 'slip:2026-08-01_2026-08-15',
+      );
+
+      expect(await repo.incomeBySource('slip:2026-08-16_2026-08-31'), isNull);
+    });
+
+    test('los ingresos tecleados a mano no tienen origen', () async {
+      await repo.saveIncome(
+        date: DateTime(2026, 8, 20),
+        concept: 'freelance',
+        lines: const [IncomeLine(amountCents: 100, currency: Currency.usd)],
+      );
+
+      expect(await repo.incomeBySource('slip:2026-08-01_2026-08-15'), isNull);
+    });
+
+    test('editar un ingreso importado no le borra el origen', () async {
+      final id = await repo.saveIncome(
+        date: DateTime(2026, 8, 18),
+        concept: 'Salario 1–15 ago',
+        lines: const [IncomeLine(amountCents: 100, currency: Currency.cup)],
+        sourceKey: 'slip:2026-08-01_2026-08-15',
+      );
+
+      // El editor guarda sin pasar sourceKey cuando el usuario retoca montos.
+      await repo.saveIncome(
+        id: id,
+        date: DateTime(2026, 8, 18),
+        concept: 'Salario corregido',
+        lines: const [IncomeLine(amountCents: 200, currency: Currency.cup)],
+      );
+
+      final found = await repo.incomeBySource('slip:2026-08-01_2026-08-15');
+      expect(found?.id, id);
+      expect(found?.concept, 'Salario corregido');
+    });
+  });
+
   group('pagos', () {
     Future<String> unIngreso(DateTime date) => repo.saveIncome(
       date: date,

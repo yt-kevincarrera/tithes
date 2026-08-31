@@ -20,9 +20,11 @@ class UpdateBanner extends ConsumerWidget {
     final downloading = state.stage == UpdateStage.downloading;
     final installing = state.stage == UpdateStage.installing;
 
+    // El margen inferior importa: sin él la barra queda pegada a la tarjeta de
+    // la deuda y parece que se solapan.
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 14),
       decoration: BoxDecoration(
         color: theme.colorScheme.secondaryContainer,
         borderRadius: BorderRadius.circular(16),
@@ -87,12 +89,31 @@ class UpdateBanner extends ConsumerWidget {
             ],
           ),
           if (downloading) ...[
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: state.progress == 0 ? null : state.progress,
-                minHeight: 6,
+            const SizedBox(height: 12),
+            Padding(
+              // La fila de arriba deja hueco a la derecha para los botones; sin
+              // esto la barra sobresale por ese lado.
+              padding: const EdgeInsets.only(right: 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: state.progress == 0 ? null : state.progress,
+                  minHeight: 6,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                state.progress == 0
+                    ? 'Empezando…'
+                    : '${(state.progress * 100).round()} %',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSecondaryContainer.withValues(
+                    alpha: 0.8,
+                  ),
+                ),
               ),
             ),
           ],

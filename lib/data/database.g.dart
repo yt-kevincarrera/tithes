@@ -595,8 +595,26 @@ class $IncomesTable extends Incomes with TableInfo<$IncomesTable, IncomeRow> {
       'REFERENCES payments (id) ON DELETE SET NULL',
     ),
   );
+  static const VerificationMeta _sourceKeyMeta = const VerificationMeta(
+    'sourceKey',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, date, concept, note, paymentId];
+  late final GeneratedColumn<String> sourceKey = GeneratedColumn<String>(
+    'source_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    date,
+    concept,
+    note,
+    paymentId,
+    sourceKey,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -640,6 +658,12 @@ class $IncomesTable extends Incomes with TableInfo<$IncomesTable, IncomeRow> {
         paymentId.isAcceptableOrUnknown(data['payment_id']!, _paymentIdMeta),
       );
     }
+    if (data.containsKey('source_key')) {
+      context.handle(
+        _sourceKeyMeta,
+        sourceKey.isAcceptableOrUnknown(data['source_key']!, _sourceKeyMeta),
+      );
+    }
     return context;
   }
 
@@ -669,6 +693,10 @@ class $IncomesTable extends Incomes with TableInfo<$IncomesTable, IncomeRow> {
         DriftSqlType.string,
         data['${effectivePrefix}payment_id'],
       ),
+      sourceKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_key'],
+      ),
     );
   }
 
@@ -686,12 +714,20 @@ class IncomeRow extends DataClass implements Insertable<IncomeRow> {
 
   /// Null mientras el ingreso está pendiente de diezmar.
   final String? paymentId;
+
+  /// Identifica de dónde salió el ingreso cuando no lo tecleó el usuario, por
+  /// ejemplo `slip:2026-08-15` para un slip de nómina importado.
+  ///
+  /// Es lo que permite avisar de que un slip ya se importó en vez de duplicar
+  /// un salario en silencio.
+  final String? sourceKey;
   const IncomeRow({
     required this.id,
     required this.date,
     required this.concept,
     this.note,
     this.paymentId,
+    this.sourceKey,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -705,6 +741,9 @@ class IncomeRow extends DataClass implements Insertable<IncomeRow> {
     if (!nullToAbsent || paymentId != null) {
       map['payment_id'] = Variable<String>(paymentId);
     }
+    if (!nullToAbsent || sourceKey != null) {
+      map['source_key'] = Variable<String>(sourceKey);
+    }
     return map;
   }
 
@@ -717,6 +756,9 @@ class IncomeRow extends DataClass implements Insertable<IncomeRow> {
       paymentId: paymentId == null && nullToAbsent
           ? const Value.absent()
           : Value(paymentId),
+      sourceKey: sourceKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceKey),
     );
   }
 
@@ -731,6 +773,7 @@ class IncomeRow extends DataClass implements Insertable<IncomeRow> {
       concept: serializer.fromJson<String>(json['concept']),
       note: serializer.fromJson<String?>(json['note']),
       paymentId: serializer.fromJson<String?>(json['paymentId']),
+      sourceKey: serializer.fromJson<String?>(json['sourceKey']),
     );
   }
   @override
@@ -742,6 +785,7 @@ class IncomeRow extends DataClass implements Insertable<IncomeRow> {
       'concept': serializer.toJson<String>(concept),
       'note': serializer.toJson<String?>(note),
       'paymentId': serializer.toJson<String?>(paymentId),
+      'sourceKey': serializer.toJson<String?>(sourceKey),
     };
   }
 
@@ -751,12 +795,14 @@ class IncomeRow extends DataClass implements Insertable<IncomeRow> {
     String? concept,
     Value<String?> note = const Value.absent(),
     Value<String?> paymentId = const Value.absent(),
+    Value<String?> sourceKey = const Value.absent(),
   }) => IncomeRow(
     id: id ?? this.id,
     date: date ?? this.date,
     concept: concept ?? this.concept,
     note: note.present ? note.value : this.note,
     paymentId: paymentId.present ? paymentId.value : this.paymentId,
+    sourceKey: sourceKey.present ? sourceKey.value : this.sourceKey,
   );
   IncomeRow copyWithCompanion(IncomesCompanion data) {
     return IncomeRow(
@@ -765,6 +811,7 @@ class IncomeRow extends DataClass implements Insertable<IncomeRow> {
       concept: data.concept.present ? data.concept.value : this.concept,
       note: data.note.present ? data.note.value : this.note,
       paymentId: data.paymentId.present ? data.paymentId.value : this.paymentId,
+      sourceKey: data.sourceKey.present ? data.sourceKey.value : this.sourceKey,
     );
   }
 
@@ -775,13 +822,15 @@ class IncomeRow extends DataClass implements Insertable<IncomeRow> {
           ..write('date: $date, ')
           ..write('concept: $concept, ')
           ..write('note: $note, ')
-          ..write('paymentId: $paymentId')
+          ..write('paymentId: $paymentId, ')
+          ..write('sourceKey: $sourceKey')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, date, concept, note, paymentId);
+  int get hashCode =>
+      Object.hash(id, date, concept, note, paymentId, sourceKey);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -790,7 +839,8 @@ class IncomeRow extends DataClass implements Insertable<IncomeRow> {
           other.date == this.date &&
           other.concept == this.concept &&
           other.note == this.note &&
-          other.paymentId == this.paymentId);
+          other.paymentId == this.paymentId &&
+          other.sourceKey == this.sourceKey);
 }
 
 class IncomesCompanion extends UpdateCompanion<IncomeRow> {
@@ -799,6 +849,7 @@ class IncomesCompanion extends UpdateCompanion<IncomeRow> {
   final Value<String> concept;
   final Value<String?> note;
   final Value<String?> paymentId;
+  final Value<String?> sourceKey;
   final Value<int> rowid;
   const IncomesCompanion({
     this.id = const Value.absent(),
@@ -806,6 +857,7 @@ class IncomesCompanion extends UpdateCompanion<IncomeRow> {
     this.concept = const Value.absent(),
     this.note = const Value.absent(),
     this.paymentId = const Value.absent(),
+    this.sourceKey = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   IncomesCompanion.insert({
@@ -814,6 +866,7 @@ class IncomesCompanion extends UpdateCompanion<IncomeRow> {
     this.concept = const Value.absent(),
     this.note = const Value.absent(),
     this.paymentId = const Value.absent(),
+    this.sourceKey = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        date = Value(date);
@@ -823,6 +876,7 @@ class IncomesCompanion extends UpdateCompanion<IncomeRow> {
     Expression<String>? concept,
     Expression<String>? note,
     Expression<String>? paymentId,
+    Expression<String>? sourceKey,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -831,6 +885,7 @@ class IncomesCompanion extends UpdateCompanion<IncomeRow> {
       if (concept != null) 'concept': concept,
       if (note != null) 'note': note,
       if (paymentId != null) 'payment_id': paymentId,
+      if (sourceKey != null) 'source_key': sourceKey,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -841,6 +896,7 @@ class IncomesCompanion extends UpdateCompanion<IncomeRow> {
     Value<String>? concept,
     Value<String?>? note,
     Value<String?>? paymentId,
+    Value<String?>? sourceKey,
     Value<int>? rowid,
   }) {
     return IncomesCompanion(
@@ -849,6 +905,7 @@ class IncomesCompanion extends UpdateCompanion<IncomeRow> {
       concept: concept ?? this.concept,
       note: note ?? this.note,
       paymentId: paymentId ?? this.paymentId,
+      sourceKey: sourceKey ?? this.sourceKey,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -871,6 +928,9 @@ class IncomesCompanion extends UpdateCompanion<IncomeRow> {
     if (paymentId.present) {
       map['payment_id'] = Variable<String>(paymentId.value);
     }
+    if (sourceKey.present) {
+      map['source_key'] = Variable<String>(sourceKey.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -885,6 +945,7 @@ class IncomesCompanion extends UpdateCompanion<IncomeRow> {
           ..write('concept: $concept, ')
           ..write('note: $note, ')
           ..write('paymentId: $paymentId, ')
+          ..write('sourceKey: $sourceKey, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3280,6 +3341,7 @@ typedef $$IncomesTableCreateCompanionBuilder =
       Value<String> concept,
       Value<String?> note,
       Value<String?> paymentId,
+      Value<String?> sourceKey,
       Value<int> rowid,
     });
 typedef $$IncomesTableUpdateCompanionBuilder =
@@ -3289,6 +3351,7 @@ typedef $$IncomesTableUpdateCompanionBuilder =
       Value<String> concept,
       Value<String?> note,
       Value<String?> paymentId,
+      Value<String?> sourceKey,
       Value<int> rowid,
     });
 
@@ -3358,6 +3421,11 @@ class $$IncomesTableFilterComposer
 
   ColumnFilters<String> get note => $composableBuilder(
     column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceKey => $composableBuilder(
+    column: $table.sourceKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3439,6 +3507,11 @@ class $$IncomesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get sourceKey => $composableBuilder(
+    column: $table.sourceKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$PaymentsTableOrderingComposer get paymentId {
     final $$PaymentsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -3483,6 +3556,9 @@ class $$IncomesTableAnnotationComposer
 
   GeneratedColumn<String> get note =>
       $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceKey =>
+      $composableBuilder(column: $table.sourceKey, builder: (column) => column);
 
   $$PaymentsTableAnnotationComposer get paymentId {
     final $$PaymentsTableAnnotationComposer composer = $composerBuilder(
@@ -3566,6 +3642,7 @@ class $$IncomesTableTableManager
                 Value<String> concept = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 Value<String?> paymentId = const Value.absent(),
+                Value<String?> sourceKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => IncomesCompanion(
                 id: id,
@@ -3573,6 +3650,7 @@ class $$IncomesTableTableManager
                 concept: concept,
                 note: note,
                 paymentId: paymentId,
+                sourceKey: sourceKey,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3582,6 +3660,7 @@ class $$IncomesTableTableManager
                 Value<String> concept = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 Value<String?> paymentId = const Value.absent(),
+                Value<String?> sourceKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => IncomesCompanion.insert(
                 id: id,
@@ -3589,6 +3668,7 @@ class $$IncomesTableTableManager
                 concept: concept,
                 note: note,
                 paymentId: paymentId,
+                sourceKey: sourceKey,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

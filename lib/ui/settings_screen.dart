@@ -10,6 +10,8 @@ import 'package:share_plus/share_plus.dart';
 import '../app/providers.dart';
 import '../app/update_controller.dart';
 import '../data/backup_service.dart';
+import '../data/income_announcer.dart';
+import '../domain/currency.dart';
 import 'format.dart';
 import 'rate_editor.dart';
 import 'template_editor.dart';
@@ -109,6 +111,10 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.file_open_outlined),
             onTap: () => _import(context, ref),
           ),
+
+          const Divider(height: 32),
+          _SectionTitle('Avisar a otra app'),
+          const _AnnounceTile(),
 
           const Divider(height: 32),
           _SectionTitle('Actualizaciones'),
@@ -288,6 +294,94 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
+/// Interruptor del aviso para Cashew, con el formato a la vista.
+///
+/// El formato se enseña porque en Cashew hay que decirle de dónde salen los
+/// valores, y no se puede configurar eso a ciegas.
+class _AnnounceTile extends ConsumerWidget {
+  const _AnnounceTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final enabled = ref.watch(announceIncomesProvider).valueOrNull ?? false;
+
+    return Column(
+      children: [
+        SwitchListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+          value: enabled,
+          title: const Text('Notificar cada ingreso'),
+          subtitle: const Text(
+            'Emite una notificación por cada monto para que Cashew la '
+            'capture y cree la transacción.',
+          ),
+          onChanged: (value) async {
+            if (value) {
+              final granted = await ref
+                  .read(incomeAnnouncerProvider)
+                  .requestPermission();
+              if (!granted) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Android no dio permiso para notificar. Actívalo en '
+                        'los ajustes del sistema.',
+                      ),
+                    ),
+                  );
+                }
+                return;
+              }
+            }
+            await ref.read(repositoryProvider).setAnnounceIncomes(value);
+          },
+        ),
+        if (enabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.4,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Así se verá en Cashew:',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Salario 1–15 ago', style: theme.textTheme.titleSmall),
+                  Text(
+                    IncomeAnnouncer.preview(2560650, Currency.cup),
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'El título es el concepto y el cuerpo el monto, con punto '
+                    'decimal y sin separador de miles.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// Versión instalada y comprobación manual.
 ///
 /// El aviso automático solo aparece al abrir la app; esto es para cuando el
@@ -312,21 +406,48 @@ class _UpdateTile extends ConsumerWidget {
       subtitle = 'Estás en la última versión';
     }
 
-    return ListTile(
-      title: Text('Versión ${current ?? '…'}'),
-      subtitle: Text(subtitle),
-      trailing: checking
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.refresh),
-      onTap: checking
-          ? null
-          : () => ref
-                .read(updateControllerProvider.notifier)
-                .check(silent: false),
+    return Column(
+      children: [
+        ListTile(
+          title: Text('Versión ${current ?? '…'}'),
+          subtitle: Text(subtitle),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: OutlinedButton.icon(
+            onPressed: checking
+                ? null
+                : () => ref
+                      .read(updateControllerProvider.notifier)
+                      .check(silent: false),
+            icon: checking
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.system_update),
+            label: Text(checking ? 'Buscando…' : 'Buscar actualización'),
+          ),
+        ),
+        if (state.available != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: FilledButton.icon(
+              onPressed: state.stage == UpdateStage.downloading
+                  ? null
+                  : () => ref
+                        .read(updateControllerProvider.notifier)
+                        .downloadAndInstall(),
+              icon: const Icon(Icons.download),
+              label: Text(
+                state.stage == UpdateStage.downloading
+                    ? 'Descargando ${(state.progress * 100).round()} %'
+                    : 'Instalar ${state.available!.version}',
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

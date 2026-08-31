@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'app/slip_intake.dart';
 import 'ui/home_screen.dart';
 import 'ui/theme.dart';
 
@@ -30,7 +31,7 @@ class ThitesApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const HomeScreen(),
+      home: const SlipIntake(child: HomeScreen()),
     );
   }
 }
