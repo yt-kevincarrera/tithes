@@ -61,6 +61,12 @@ El monto propuesto es el calculado redondeado hacia arriba al CUP entero. El
 usuario puede editarlo. Se guardan los dos: lo calculado y lo realmente
 entregado.
 
+**El número grande de la pantalla de inicio es el exacto, no el redondeado**, y
+el redondeo aparece debajo con su etiqueta. Enseñar solo el redondeo escondería
+cuál es el mínimo de verdad, y algún mes puede no alcanzar para redondear hacia
+arriba. Por la misma razón, la pantalla de pago ofrece los dos importes como
+atajos de un toque en vez de obligar a teclear.
+
 Si el monto real difiere del calculado, la diferencia **se ignora**. No se
 arrastran saldos. Los ingresos quedan saldados igual.
 

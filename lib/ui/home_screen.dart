@@ -242,7 +242,11 @@ class _DebtCard extends ConsumerWidget {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        formatCentsCompact(calculation.proposedCupCents),
+                        // El exacto, no el redondeado. Es el número que hay
+                        // que ver si algún día no alcanza para redondear
+                        // hacia arriba: enseñar solo el redondeo escondería
+                        // cuál es el mínimo de verdad.
+                        formatCentsCompact(calculation.titheCupCents),
                         style: theme.textTheme.displayMedium?.copyWith(
                           color: scheme.onPrimaryContainer,
                           fontWeight: FontWeight.w700,
@@ -270,6 +274,29 @@ class _DebtCard extends ConsumerWidget {
                   color: scheme.onPrimaryContainer.withValues(alpha: 0.75),
                 ),
               ),
+              // Solo cuando el redondeo cambia algo: si el diezmo ya sale
+              // entero, decirlo sería ruido.
+              if (calculation.proposedCupCents != calculation.titheCupCents) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.onPrimaryContainer.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Redondeado: '
+                    '${formatCentsCompact(calculation.proposedCupCents)} CUP',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onPrimaryContainer.withValues(alpha: 0.9),
+                      fontFeatures: tabularFigures,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               _Breakdown(calculation: calculation),
             ],
@@ -588,47 +615,75 @@ class IncomeTile extends ConsumerWidget {
       confirmDismiss: (_) => _confirmDelete(context),
       onDismissed: (_) =>
           ref.read(repositoryProvider).deleteIncome(income.id),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      // Una fila propia y no un ListTile: un ingreso puede traer tres o más
+      // monedas —el slip con bono ya trae tres— y la altura fija del ListTile
+      // las desborda.
+      child: InkWell(
         onTap: () => showIncomeEditor(context, income: income),
-        title: Text(
-          income.concept.isEmpty ? 'Ingreso' : income.concept,
-          style: theme.textTheme.titleSmall,
-        ),
-        subtitle: Row(
-          children: [
-            Text(formatRelativeDate(income.date)),
-            if (isOverdue) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.tertiaryContainer,
-                  borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      income.concept.isEmpty ? 'Ingreso' : income.concept,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          formatRelativeDate(income.date),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        if (isOverdue)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'atrasado',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onTertiaryContainer,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
-                child: Text(
-                  'atrasado',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onTertiaryContainer,
-                  ),
-                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final line in income.lines)
+                    Text(
+                      formatMoneyCompact(line.amountCents, line.currency),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontFeatures: tabularFigures,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
               ),
             ],
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            for (final line in income.lines)
-              Text(
-                formatMoneyCompact(line.amountCents, line.currency),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFeatures: tabularFigures,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );

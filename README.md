@@ -110,6 +110,17 @@ para instalar.
 Publicar una versión es empujar una etiqueta `v*`; el resto lo hace CI. Ver
 [docs/RELEASES.md](docs/RELEASES.md).
 
+## Ver las pantallas sin teléfono
+
+```bash
+flutter test tool/preview_screens.dart
+```
+
+Renderiza las pantallas a PNG en `build/preview/` con datos de ejemplo. No
+comprueba nada —no es un test— pero atrapa lo que ni los tests ni el analizador
+ven: que algo desborde, se solape o diga dos cifras distintas para lo mismo.
+Merece la pena pasarlo antes de publicar cualquier cambio de interfaz.
+
 ## Estructura
 
 ```

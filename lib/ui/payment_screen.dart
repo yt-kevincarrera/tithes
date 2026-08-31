@@ -27,6 +27,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _amountEdited = false;
   bool _saving = false;
 
+  /// Lo que hay ahora mismo en el campo, en centésimas. Sirve para marcar cuál
+  /// de los dos atajos está puesto.
+  int? get _selected => parseAmountToCents(_amount.text);
+
+  void _setAmount(int cents) {
+    setState(() {
+      _amountEdited = true;
+      _amount.text = centsToInput(cents);
+    });
+  }
+
   @override
   void dispose() {
     _amount.dispose();
@@ -212,13 +223,29 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ),
                 decoration: const InputDecoration(suffixText: 'CUP'),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Propuesto: ${formatCentsCompact(calculation.proposedCupCents)} CUP '
-                '(el exacto redondeado hacia arriba).',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
+              const SizedBox(height: 10),
+              // Dos atajos en vez de un texto explicativo: si un mes no
+              // alcanza para redondear, poner el exacto tiene que costar un
+              // toque, no teclear el número a mano.
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _AmountChip(
+                    label: 'Exacto',
+                    cents: calculation.titheCupCents,
+                    selected: _selected == calculation.titheCupCents,
+                    onTap: () => _setAmount(calculation.titheCupCents),
+                  ),
+                  if (calculation.proposedCupCents !=
+                      calculation.titheCupCents)
+                    _AmountChip(
+                      label: 'Redondeado',
+                      cents: calculation.proposedCupCents,
+                      selected: _selected == calculation.proposedCupCents,
+                      onTap: () => _setAmount(calculation.proposedCupCents),
+                    ),
+                ],
               ),
               const SizedBox(height: 20),
               TextField(
@@ -251,6 +278,39 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Atajo para poner un importe concreto en el campo.
+class _AmountChip extends StatelessWidget {
+  const _AmountChip({
+    required this.label,
+    required this.cents,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final int cents;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ChoiceChip(
+      selected: selected,
+      onSelected: (_) => onTap(),
+      showCheckmark: false,
+      label: Text(
+        '$label · ${formatCentsCompact(cents)}',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontFeatures: tabularFigures,
+          fontWeight: selected ? FontWeight.w600 : null,
+        ),
       ),
     );
   }

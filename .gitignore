@@ -49,3 +49,6 @@ app.*.map.json
 android/key.properties
 android/*.jks
 android/*.keystore
+
+# Capturas de previsualizacion generadas por tool/preview_screens.dart
+/build/preview/
