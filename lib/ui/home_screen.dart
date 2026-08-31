@@ -26,10 +26,13 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     // Se intenta refrescar al abrir. Si falla no pasa nada: quedan las tasas
     // que ya había guardadas.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -38,6 +41,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // usuario y no se le dice nada.
       ref.read(updateControllerProvider.notifier).check();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
+    // Al volver de tener la pantalla apagada o de otra app, se le vuelve a
+    // preguntar al servicio de descargas en qué punto está. Sin esto, una
+    // descarga que terminó mientras la app no estaba delante seguiría
+    // enseñándose a medias.
+    if (lifecycle == AppLifecycleState.resumed) {
+      ref.read(updateControllerProvider.notifier).syncWithDownloadService();
+    }
   }
 
   /// Comprobación manual. A diferencia de la del arranque, esta sí dice algo

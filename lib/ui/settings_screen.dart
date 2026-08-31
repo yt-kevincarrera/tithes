@@ -489,16 +489,25 @@ class _UpdateTile extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: FilledButton.icon(
-              onPressed: state.stage == UpdateStage.downloading
+              onPressed: state.isBusy
                   ? null
                   : () => ref
                         .read(updateControllerProvider.notifier)
                         .downloadAndInstall(),
-              icon: const Icon(Icons.download),
+              icon: Icon(
+                state.stage == UpdateStage.readyToInstall
+                    ? Icons.install_mobile
+                    : Icons.download,
+              ),
               label: Text(
-                state.stage == UpdateStage.downloading
-                    ? 'Descargando ${(state.progress * 100).round()} %'
-                    : 'Instalar ${state.available!.version}',
+                switch (state.stage) {
+                  UpdateStage.downloading =>
+                    'Descargando ${(state.progress * 100).round()} %',
+                  UpdateStage.installing => 'Abriendo el instalador…',
+                  UpdateStage.readyToInstall =>
+                    'Instalar ${state.available!.version}',
+                  _ => 'Descargar ${state.available!.version}',
+                },
               ),
             ),
           ),

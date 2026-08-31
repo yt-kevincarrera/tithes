@@ -14,7 +14,7 @@ Future<void> main() async {
   await initializeDateFormatting('es');
   // La descarga de actualizaciones la lleva el servicio de Android, así que su
   // notificación se configura antes de que pueda arrancar ninguna.
-  UpdateService.configureNotifications();
+  await UpdateService.configureDownloads();
   runApp(const ProviderScope(child: ThitesApp()));
 }
 

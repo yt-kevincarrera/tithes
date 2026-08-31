@@ -166,62 +166,76 @@ class UpdateService {
   /// pantalla o se cambia de aplicación. Además, así Android enseña su propia
   /// notificación con la barra de progreso y, al terminar, tocarla abre el
   /// instalador aunque la app ya no esté delante.
-  Future<File> download(
-    AvailableUpdate update, {
-    void Function(double progress)? onProgress,
-  }) async {
+  /// Identificador estable de la descarga de una versión.
+  ///
+  /// Que sea estable es lo que permite reencontrar la descarga después de que
+  /// Android suspenda o mate la app: al volver se pregunta por este id en vez
+  /// de depender de un `Future` que ya no existe.
+  static String taskIdFor(AppVersion version) => 'update-$version';
+
+  DownloadTask _taskFor(AvailableUpdate update) => DownloadTask(
+    taskId: taskIdFor(update.version),
+    url: update.apkUrl,
+    filename: 'diezmo-${update.version}.apk',
+    // El directorio de caché de la app: no necesita permisos de almacenamiento
+    // y el FileProvider del instalador llega ahí.
+    baseDirectory: BaseDirectory.temporary,
+    updates: Updates.statusAndProgress,
+    allowPause: true,
+    retries: 2,
+  );
+
+  /// Encola la descarga y devuelve al momento.
+  ///
+  /// **No espera a que termine.** Esperar dentro de la app era justo el fallo:
+  /// el servicio de Android sigue descargando cuando la pantalla se apaga, pero
+  /// la espera vivía en el proceso de la app y moría con él, así que al volver
+  /// aparecía un error aunque el archivo estuviera entero. Ahora el progreso
+  /// llega por los callbacks y, si el proceso muere, el estado se recupera con
+  /// [recordFor].
+  Future<void> startDownload(AvailableUpdate update) async {
     // Desde Android 13 la notificación de progreso necesita permiso. Se pide
-    // aquí y no al arrancar, para pedirlo en el momento en que se entiende para
-    // qué es. Si lo deniega la descarga sigue igual, solo que a ciegas.
+    // aquí y no al arrancar, para pedirlo cuando se entiende para qué es. Si lo
+    // deniega, la descarga sigue igual: solo que a ciegas.
     final downloader = FileDownloader();
     if (await downloader.permissions.status(PermissionType.notifications) !=
         PermissionStatus.granted) {
       await downloader.permissions.request(PermissionType.notifications);
     }
 
-    final filename = 'diezmo-${update.version}.apk';
-
-    final task = DownloadTask(
-      url: update.apkUrl,
-      filename: filename,
-      // El directorio de caché de la app: no necesita permisos de
-      // almacenamiento y el FileProvider del instalador llega ahí.
-      baseDirectory: BaseDirectory.temporary,
-      updates: Updates.statusAndProgress,
-      allowPause: true,
-      retries: 2,
-    );
-
-    final result = await downloader.download(
-      task,
-      onProgress: (progress) {
-        // Antes de conocer el tamaño el paquete manda valores negativos.
-        if (progress >= 0) onProgress?.call(progress);
-      },
-    );
-
-    switch (result.status) {
-      case TaskStatus.complete:
-        break;
-      case TaskStatus.canceled:
-        throw UpdateException('Descarga cancelada.');
-      case TaskStatus.notFound:
-        throw UpdateException('El APK de esa versión ya no está en GitHub.');
-      default:
-        throw UpdateException(
-          result.exception?.description ?? 'La descarga no pudo terminar.',
-        );
+    final enqueued = await downloader.enqueue(_taskFor(update));
+    if (!enqueued) {
+      throw UpdateException('No se pudo poner la descarga en cola.');
     }
-
-    return File(await task.filePath());
   }
 
-  /// Deja configurada la notificación del sistema para las descargas.
+  /// Lo que el servicio de descargas sabe de esa versión, si sabe algo.
+  Future<TaskRecord?> recordFor(AvailableUpdate update) =>
+      FileDownloader().database.recordForId(taskIdFor(update.version));
+
+  /// El APK de esa versión, si ya está descargado entero.
   ///
-  /// Se llama una vez al arrancar. `tapOpensFile` es lo que permite instalar
-  /// desde la notificación sin volver a la app.
-  static void configureNotifications() {
-    FileDownloader().configureNotification(
+  /// El paquete escribe a un temporal y renombra al terminar, así que si el
+  /// archivo final existe es que la descarga acabó bien.
+  Future<File?> downloadedApk(AvailableUpdate update) async {
+    final file = File(await _taskFor(update).filePath());
+    return file.existsSync() ? file : null;
+  }
+
+  Future<void> cancelDownload(AvailableUpdate update) =>
+      FileDownloader().cancelTaskWithId(taskIdFor(update.version));
+
+  /// Deja el servicio de descargas listo. Se llama una vez al arrancar.
+  ///
+  /// `trackTasks` es lo que guarda el estado de cada descarga en disco, y sin
+  /// eso no habría forma de saber, al volver a la app, que la de antes terminó.
+  /// `tapOpensFile` permite instalar desde la notificación sin abrir la app.
+  static Future<void> configureDownloads() async {
+    final downloader = FileDownloader();
+
+    await downloader.trackTasks();
+
+    downloader.configureNotification(
       running: const TaskNotification(
         'Descargando la actualización',
         '{filename} · {progress}',
