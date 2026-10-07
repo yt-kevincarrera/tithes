@@ -63,7 +63,80 @@ Seguridad Social 2 (D): \$ 3,000
 Final Pay (CUP): \$ 25,956.50
 ''';
 
+const _slipConPrestamo = '''
+Salary Slip
+Kevin Carrera Calzado
+
+Status: Submitted
+Total Gross Monthly Salary: \$ 74,000.00
+Personal Income Taxes: 5,043.500
+Social Security Contribution: 3,125
+Payment Rate: 780
+
+Payroll Period
+From: 16-09-2026
+To: 30-09-2026
+
+Earnings
+Salario Quincenal CUP Acumulado V: \$ 39,000
+Salario Quincenal CUP: \$ 39,000
+Base Impositiva (CUP): \$ 74,000
+Salario Banco CUP: \$ 29,631.50
+Salario Tropipay USD: \$ 200
+Bono: \$ 300
+
+Deductions
+Ingresos Personales 2 (D): \$ 5,843.50
+Seguridad Social 2 (D): \$ 3,525
+Deducción - Loan Crédito Trabajadores: \$ 250
+
+Final Pay (CUP): \$ 29,631.50
+''';
+
 void main() {
+  group('deducciones extra', () {
+    test('se restan del USD (Tropipay + bono) y no del CUP', () {
+      final slip = SalarySlipParser.parse(_slipConPrestamo);
+
+      expect(slip.lines, [
+        const IncomeLine(amountCents: 2963150, currency: Currency.cup),
+        const IncomeLine(amountCents: 25000, currency: Currency.usd),
+      ]);
+    });
+
+    test('Ingresos Personales y Seguridad Social no cuentan', () {
+      final slip = SalarySlipParser.parse(_slipConPrestamo);
+
+      expect(slip.deductions, hasLength(1));
+      expect(slip.deductions.single.label, contains('Loan'));
+      expect(slip.deductions.single.amountCents, 25000);
+    });
+
+    test('sin deducciones extra los slips no cambian', () {
+      expect(SalarySlipParser.parse(_slipConBono).deductions, isEmpty);
+      expect(SalarySlipParser.parse(_slipConBono).lines, hasLength(3));
+    });
+
+    test('varias deducciones se suman', () {
+      final slip = SalarySlipParser.parse(
+        'Salario Tropipay USD: \$ 200\nBono: \$ 300\n\nDeductions\n'
+        'Deducción - A: \$ 100\nDeducción - B: \$ 50\n\nFinal Pay (CUP): \$ 10',
+      );
+      expect(
+        slip.lines.where((l) => l.currency == Currency.usd).single.amountCents,
+        35000,
+      );
+    });
+
+    test('si la deducción se come todo el USD no queda línea en USD', () {
+      final slip = SalarySlipParser.parse(
+        'Salario Tropipay USD: \$ 200\n\nDeductions\n'
+        'Deducción - A: \$ 250\n\nFinal Pay (CUP): \$ 10',
+      );
+      expect(slip.lines.map((l) => l.currency), [Currency.cup]);
+    });
+  });
+
   group('el slip con bono', () {
     test('coge el bono además del salario', () {
       final slip = SalarySlipParser.parse(_slipConBono);

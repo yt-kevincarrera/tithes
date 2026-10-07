@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/currency.dart';
 import '../domain/income.dart';
 import '../domain/income_draft.dart';
 import '../domain/salary_slip.dart';
@@ -135,6 +136,17 @@ Future<bool> importText(WidgetRef ref, String text) async {
   }
 
   if (!context.mounted) return false;
+
+  if (slip.deductions.isNotEmpty) {
+    final detail = slip.deductions
+        .map(
+          (d) => '${d.label} ${formatMoneyCompact(d.amountCents, Currency.usd)}',
+        )
+        .join(', ');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Descontado del USD: $detail.')),
+    );
+  }
 
   await showIncomeEditor(
     context,

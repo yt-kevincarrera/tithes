@@ -2,18 +2,30 @@ import 'currency.dart';
 import 'income.dart';
 import 'period_label.dart';
 
+/// Una deducción del slip que no está en el Final Pay y se resta del USD.
+class SlipDeduction {
+  const SlipDeduction({required this.label, required this.amountCents});
+
+  final String label;
+  final int amountCents;
+}
+
 /// Lo que se ha podido sacar de un slip de nómina.
 class SalarySlip {
   const SalarySlip({
     required this.periodStart,
     required this.periodEnd,
     required this.lines,
+    this.deductions = const [],
   });
 
   final DateTime? periodStart;
   final DateTime? periodEnd;
 
   final List<IncomeLine> lines;
+
+  /// Deducciones ya restadas del USD en [lines]; sirven para avisar al usuario.
+  final List<SlipDeduction> deductions;
 
   bool get isEmpty => lines.isEmpty;
 
@@ -78,6 +90,10 @@ abstract final class SalarySlipParser {
       text.contains('Salary Slip') ||
       _fields.any((f) => text.contains(f.$1));
 
+  /// Deducciones que el Final Pay ya tiene descontadas. Restarlas otra vez
+  /// sería descontarlas dos veces.
+  static const _alreadyInFinalPay = ['Ingresos Personales', 'Seguridad Social'];
+
   static SalarySlip parse(String text) {
     final lines = <IncomeLine>[];
 
@@ -88,11 +104,61 @@ abstract final class SalarySlipParser {
       }
     }
 
+    final deductions = _extraDeductions(text);
+    final deducted = deductions.fold<int>(0, (sum, d) => sum + d.amountCents);
+    final adjusted = deducted == 0 ? lines : _applyUsdDeductions(lines, deducted);
+
     return SalarySlip(
       periodStart: _dateAfter(text, 'From'),
       periodEnd: _dateAfter(text, 'To'),
-      lines: lines,
+      lines: adjusted,
+      deductions: deductions,
     );
+  }
+
+  /// Junta el USD del slip (Tropipay + bono) en una sola línea y le resta las
+  /// deducciones. Si no queda nada, no deja línea en USD.
+  static List<IncomeLine> _applyUsdDeductions(
+    List<IncomeLine> lines,
+    int deducted,
+  ) {
+    final usd = lines
+        .where((l) => l.currency == Currency.usd)
+        .fold<int>(0, (sum, l) => sum + l.amountCents);
+    final net = usd - deducted;
+
+    return [
+      ...lines.where((l) => l.currency != Currency.usd),
+      if (net > 0) IncomeLine(amountCents: net, currency: Currency.usd),
+    ];
+  }
+
+  /// Las deducciones de la sección `Deductions` que el Final Pay no incluye,
+  /// p. ej. `Deducción - Loan Crédito Trabajadores: $ 250`. Se dan en USD.
+  static List<SlipDeduction> _extraDeductions(String text) {
+    final start = RegExp(r'^\s*Deductions\s*$', multiLine: true)
+        .firstMatch(text);
+    if (start == null) return const [];
+
+    var section = text.substring(start.end);
+    final end = RegExp(r'^\s*Final Pay', multiLine: true).firstMatch(section);
+    if (end != null) section = section.substring(0, end.start);
+
+    final result = <SlipDeduction>[];
+    final row = RegExp(r'^\s*(.+?)\s*:\s*\$?\s*([0-9.,]+)\s*$');
+    for (final line in section.split('\n')) {
+      final match = row.firstMatch(line);
+      if (match == null) continue;
+
+      final label = match.group(1)!;
+      if (_alreadyInFinalPay.any(label.startsWith)) continue;
+
+      final cents = _slipAmountToCents(match.group(2)!);
+      if (cents != null && cents > 0) {
+        result.add(SlipDeduction(label: label, amountCents: cents));
+      }
+    }
+    return result;
   }
 
   /// Busca `Etiqueta: $ 25,606.50` y devuelve centésimas.
