@@ -8,13 +8,12 @@ import 'format.dart';
 import 'theme.dart';
 import 'widgets/sheet_scaffold.dart';
 
-Future<void> showRateEditor(BuildContext context) =>
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => const RateEditor(),
-    );
+Future<void> showRateEditor(BuildContext context) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  builder: (_) => const RateEditor(),
+);
 
 /// Ver y sobrescribir las tasas.
 ///
@@ -29,7 +28,9 @@ class RateEditor extends ConsumerStatefulWidget {
 
 class _RateEditorState extends ConsumerState<RateEditor> {
   final _controllers = <Currency, TextEditingController>{};
+  final _savedRates = <Currency, int>{};
   Set<Currency> _manual = {};
+  bool _saving = false;
   bool _loaded = false;
 
   @override
@@ -49,6 +50,9 @@ class _RateEditorState extends ConsumerState<RateEditor> {
 
     setState(() {
       _manual = manual;
+      _savedRates
+        ..clear()
+        ..addAll(rates?.values ?? {});
       for (final currency in Currency.foreign) {
         final value = rates?.values[currency];
         _controllers[currency]!.text = value == null ? '' : centsToInput(value);
@@ -66,6 +70,7 @@ class _RateEditorState extends ConsumerState<RateEditor> {
   }
 
   Future<void> _saveManual(Currency currency) async {
+    if (_saving) return;
     final cents = parseAmountToCents(_controllers[currency]!.text);
     if (cents == null || cents <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -74,11 +79,26 @@ class _RateEditorState extends ConsumerState<RateEditor> {
       return;
     }
 
-    await ref
-        .read(repositoryProvider)
-        .saveManualRate(currency: currency, rateCents: cents);
-    if (!mounted) return;
-    setState(() => _manual = {..._manual, currency});
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(repositoryProvider)
+          .saveManualRate(currency: currency, rateCents: cents);
+      if (!mounted) return;
+      setState(() {
+        _manual = {..._manual, currency};
+        _savedRates[currency] = cents;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo guardar la tasa. Inténtalo de nuevo.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _clearManual(Currency currency) async {
@@ -110,7 +130,7 @@ class _RateEditorState extends ConsumerState<RateEditor> {
       title: 'Tasas de cambio',
       actions: [
         IconButton(
-          onPressed: refreshing ? null : _refresh,
+          onPressed: refreshing || _saving || !_loaded ? null : _refresh,
           icon: refreshing
               ? const SizedBox(
                   width: 20,
@@ -124,23 +144,31 @@ class _RateEditorState extends ConsumerState<RateEditor> {
       children: [
         Text(
           'Cuántos CUP vale una unidad de cada moneda. Lo que escribas a mano '
-          'manda sobre lo que baje de elToque.',
+          'manda sobre lo que baje de elToque. Pulsa el botón de guardar '
+          'de cada moneda para aplicar los cambios.',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 20),
         if (!_loaded)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(),
-          ))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          )
         else
           for (final currency in Currency.foreign) ...[
             _RateField(
               currency: currency,
               controller: _controllers[currency]!,
               isManual: _manual.contains(currency),
+              hasChanges:
+                  parseAmountToCents(_controllers[currency]!.text) !=
+                  _savedRates[currency],
+              enabled: !_saving && !refreshing,
+              onChanged: () => setState(() {}),
               onSave: () => _saveManual(currency),
               onClear: () => _clearManual(currency),
             ),
@@ -164,6 +192,9 @@ class _RateField extends StatelessWidget {
     required this.currency,
     required this.controller,
     required this.isManual,
+    required this.hasChanges,
+    required this.enabled,
+    required this.onChanged,
     required this.onSave,
     required this.onClear,
   });
@@ -171,6 +202,9 @@ class _RateField extends StatelessWidget {
   final Currency currency;
   final TextEditingController controller;
   final bool isManual;
+  final bool hasChanges;
+  final bool enabled;
+  final VoidCallback onChanged;
   final VoidCallback onSave;
   final VoidCallback onClear;
 
@@ -178,54 +212,71 @@ class _RateField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: 64,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(currency.code, style: theme.textTheme.titleMedium),
-              if (isManual)
-                Text(
-                  'a mano',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.tertiary,
-                  ),
+        Row(
+          children: [
+            SizedBox(
+              width: 64,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(currency.code, style: theme.textTheme.titleMedium),
+                  if (isManual)
+                    Text(
+                      'a mano',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.tertiary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                enabled: enabled,
+                onChanged: (_) => onChanged(),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
                 ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-            ],
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontFeatures: tabularFigures,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                ],
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontFeatures: tabularFigures,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Tasa de ${currency.code}',
+                  suffixText: 'CUP',
+                  helperText: hasChanges
+                      ? 'Cambios sin guardar'
+                      : isManual
+                      ? 'Tasa manual guardada'
+                      : null,
+                  helperMaxLines: 2,
+                  isDense: true,
+                ),
+                onSubmitted: (_) => onSave(),
+              ),
             ),
-            decoration: const InputDecoration(
-              suffixText: 'CUP',
-              isDense: true,
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: enabled ? onSave : null,
+              icon: const Icon(Icons.check),
+              tooltip: 'Guardar tasa de ${currency.code}',
             ),
-            onSubmitted: (_) => onSave(),
-          ),
+          ],
         ),
-        const SizedBox(width: 8),
         if (isManual)
-          IconButton(
-            onPressed: onClear,
-            icon: const Icon(Icons.undo),
-            tooltip: 'Volver a la de elToque',
-          )
-        else
-          IconButton(
-            onPressed: onSave,
-            icon: const Icon(Icons.check),
-            tooltip: 'Fijar a mano',
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: enabled ? onClear : null,
+              icon: const Icon(Icons.undo),
+              label: const Text('Volver a la de elToque'),
+            ),
           ),
       ],
     );
