@@ -548,7 +548,14 @@ class TitheRepository {
   }
 
   Future<void> setTokenExpiry(DateTime? expiresAt) async {
-    if (expiresAt == null) return;
+    // Una respuesta válida sin fecha también reemplaza la información vieja:
+    // el token renovado puede usar otro formato y no exponer su caducidad.
+    if (expiresAt == null) {
+      await (_db.delete(
+        _db.settings,
+      )..where((s) => s.key.equals(_kTokenExpiresAt))).go();
+      return;
+    }
     await _db
         .into(_db.settings)
         .insertOnConflictUpdate(
